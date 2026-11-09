@@ -1,0 +1,555 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulasi Emisi Gas Transportasi 3D - Three.js</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0b0e17;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #ffffff;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        /* UI Panel Penjelasan Gas Emisi */
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 340px;
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+        }
+        #info-panel h2 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: #38bdf8;
+        }
+        #info-panel p.subtitle {
+            margin: 0 0 14px 0;
+            font-size: 12.5px;
+            color: #94a3b8;
+            line-height: 1.4;
+        }
+        .gas-card {
+            background: rgba(30, 41, 59, 0.7);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid transparent;
+        }
+        .gas-co2 { border-left-color: #ef4444; }
+        .gas-nox { border-left-color: #eab308; }
+        .gas-co  { border-left-color: #a855f7; }
+
+        .gas-header {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            display: inline-block;
+            box-shadow: 0 0 8px currentColor;
+        }
+        .dot-red { background-color: #ef4444; color: #ef4444; }
+        .dot-yellow { background-color: #eab308; color: #eab308; }
+        .dot-purple { background-color: #a855f7; color: #a855f7; }
+
+        .gas-desc {
+            font-size: 12px;
+            color: #cbd5e1;
+            line-height: 1.4;
+            margin: 0;
+        }
+        .controls {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        .slider-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+        }
+        input[type="range"] {
+            width: 60%;
+            accent-color: #38bdf8;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Panel Informasi di dalam Layar -->
+    <div id="info-panel">
+        <h2>Emisi Gas Transportasi</h2>
+        <p class="subtitle">Simulasi molekul atom gas buang dari knalpot kendaraan bermotor (Geser mouse untuk memutar kamera).</p>
+
+        <div class="gas-card gas-co2">
+            <div class="gas-header">
+                <span class="dot dot-red"></span>
+                🔴 Karbon Dioksida (CO₂)
+            </div>
+            <p class="gas-desc">
+                <strong>Struktur:</strong> 1 Atom Karbon + 2 Atom Oksigen.<br>
+                Gas rumah kaca utama hasil pembakaran bahan bakar fosil sempurna yang memicu pemanasan global.
+            </p>
+        </div>
+
+        <div class="gas-card gas-nox">
+            <div class="gas-header">
+                <span class="dot dot-yellow"></span>
+                🟡 Nitrogen Oksida (NOx)
+            </div>
+            <p class="gas-desc">
+                <strong>Struktur:</strong> Ikatan Atom Nitrogen & Oksigen.<br>
+                Terbentuk akibat suhu tekanan tinggi di dalam ruang mesin. Menyebabkan kabut asap (smog) dan hujan asam.
+            </p>
+        </div>
+
+        <div class="gas-card gas-co">
+            <div class="gas-header">
+                <span class="dot dot-purple"></span>
+                🟣 Karbon Monoksida (CO) & Polutan Lain
+            </div>
+            <p class="gas-desc">
+                <strong>Struktur:</strong> 1 Karbon + 1 Oksigen & Partikulat (PM2.5/HC).<br>
+                Dihasilkan dari pembakaran tidak sempurna. Gas beracun yang menghambat pengikatan oksigen dalam darah.
+            </p>
+        </div>
+
+        <div class="controls">
+            <div class="slider-group">
+                <label for="rpmSlider">Kecepatan & Emisi:</label>
+                <input type="range" id="rpmSlider" min="0.5" max="3" step="0.1" value="1.5">
+            </div>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <!-- Import Three.js & OrbitControls via CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ============================================================================
+        // DATA & PENJELASAN GAS BUANG TRANSPORTASI (DI DALAM KODE)
+        // ============================================================================
+        const DATA_GAS_EMISI = {
+            CO2: {
+                nama: "🔴 Karbon Dioksida (CO₂)",
+                warnaUtama: 0xef4444, // Merah
+                warnaIkatan: 0x991b1b,
+                rasioKemunculan: 0.55, // CO2 adalah mayoritas gas buang kendaraan
+                penjelasan: "Gas hasil pembakaran bahan bakar hidrokarbon. Memiliki 3 gugus atom (O=C=O) berbentuk linear. Menyebabkan efek rumah kaca."
+            },
+            NOx: {
+                nama: "🟡 Nitrogen Oksida (NOx)",
+                warnaUtama: 0xeab308, // Kuning
+                warnaIkatan: 0xca8a04,
+                rasioKemunculan: 0.25,
+                penjelasan: "Senyawa NO dan NO2 yang keluar dari knalpot karena reaksi nitrogen udara pada suhu pembakaran mesin yang tinggi. Memicu iritasi paru-paru dan hujan asam."
+            },
+            CO_POLUTAN: {
+                nama: "🟣 Karbon Monoksida (CO) & Polutan Lain (HC, PM)",
+                warnaUtama: 0xa855f7, // Ungu
+                warnaIkatan: 0x6b21a8,
+                rasioKemunculan: 0.20,
+                penjelasan: "Muncul akibat pembakaran mesin yang kurang oksigen (tidak sempurna), menghasilkan molekul CO, Hidrokarbon (HC), dan partikulat jelaga."
+            }
+        };
+
+        // ============================================================================
+        // INISIALISASI SCENE, KAMERA, DAN RENDERER
+        // ============================================================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0b0e17);
+        scene.fog = new THREE.FogExp2(0x0b0e17, 0.025);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(-7, 4, 9);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.target.set(-1, 1, 0);
+
+        // ============================================================================
+        // PENCAHAYAAN (LIGHTING)
+        // ============================================================================
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(5, 10, 7);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // Cahaya biru tipis dari bawah untuk kesan futuristik/jelas
+        const underLight = new THREE.PointLight(0x38bdf8, 1.5, 15);
+        underLight.position.set(0, 0.5, 0);
+        scene.add(underLight);
+
+        // ============================================================================
+        // MEMBUAT JALAN RAYA BERGERAK
+        // ============================================================================
+        const roadGroup = new THREE.Group();
+        scene.add(roadGroup);
+
+        const roadGeo = new THREE.PlaneGeometry(60, 10);
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+        const road = new THREE.Mesh(roadGeo, roadMat);
+        road.rotation.x = -Math.PI / 2;
+        road.receiveShadow = true;
+        roadGroup.add(road);
+
+        // Garis putus-putus jalan
+        const stripes = [];
+        const stripeGeo = new THREE.PlaneGeometry(1.8, 0.2);
+        const stripeMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+        for (let i = -25; i < 25; i += 4) {
+            const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+            stripe.rotation.x = -Math.PI / 2;
+            stripe.position.set(i, 0.01, 0);
+            roadGroup.add(stripe);
+            stripes.push(stripe);
+        }
+
+        // ============================================================================
+        // MEMBUAT MODEL 3D TRANSPORTASI (TRUK / MOBIL BOX)
+        // ============================================================================
+        const vehicleGroup = new THREE.Group();
+        scene.add(vehicleGroup);
+
+        // Bodi Bawah (Sasis)
+        const chassisGeo = new THREE.BoxGeometry(3.8, 0.5, 1.8);
+        const chassisMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
+        const chassis = new THREE.Mesh(chassisGeo, chassisMat);
+        chassis.position.set(0, 0.6, 0);
+        chassis.castShadow = true;
+        vehicleGroup.add(chassis);
+
+        // Kabin Depan
+        const cabinGeo = new THREE.BoxGeometry(1.4, 1.2, 1.7);
+        const cabinMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3, metalness: 0.2 });
+        const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+        cabin.position.set(1.1, 1.45, 0);
+        cabin.castShadow = true;
+        vehicleGroup.add(cabin);
+
+        // Kaca Depan Kabin
+        const glassGeo = new THREE.BoxGeometry(0.1, 0.6, 1.5);
+        const glassMat = new THREE.MeshStandardMaterial({ color: 0xbae6fd, emissive: 0x0ea5e9, emissiveIntensity: 0.2 });
+        const glass = new THREE.Mesh(glassGeo, glassMat);
+        glass.position.set(1.78, 1.6, 0);
+        vehicleGroup.add(glass);
+
+        // Box Kargo Belakang
+        const cargoGeo = new THREE.BoxGeometry(2.2, 1.6, 1.85);
+        const cargoMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.6 });
+        const cargo = new THREE.Mesh(cargoGeo, cargoMat);
+        cargo.position.set(-0.75, 1.65, 0);
+        cargo.castShadow = true;
+        vehicleGroup.add(cargo);
+
+        // Lampu Depan & Belakang
+        const headLightGeo = new THREE.BoxGeometry(0.1, 0.2, 0.3);
+        const headLightMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+        const hlLeft = new THREE.Mesh(headLightGeo, headLightMat);
+        hlLeft.position.set(1.86, 0.7, 0.6);
+        const hlRight = hlLeft.clone();
+        hlRight.position.z = -0.6;
+        vehicleGroup.add(hlLeft, hlRight);
+
+        const tailLightMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+        const tlLeft = new THREE.Mesh(headLightGeo, tailLightMat);
+        tlLeft.position.set(-1.91, 0.65, 0.65);
+        const tlRight = tlLeft.clone();
+        tlRight.position.z = -0.65;
+        vehicleGroup.add(tlLeft, tlRight);
+
+        // Knalpot (Tempat keluarnya atom gas emisi)
+        const exhaustGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.6, 16);
+        const exhaustMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.8, roughness: 0.3 });
+        const exhaustPipe = new THREE.Mesh(exhaustGeo, exhaustMat);
+        exhaustPipe.rotation.z = Math.PI / 2;
+        exhaustPipe.position.set(-2.0, 0.4, -0.55); // Posisi knalpot di kiri belakang
+        vehicleGroup.add(exhaustPipe);
+
+        // Roda Kendaraan
+        const wheels = [];
+        const wheelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.3, 24);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+        const rimGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.32, 12);
+        const rimMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.6 });
+
+        const wheelPositions = [
+            [1.1, 0.42, 0.9],  // Depan Kanan
+            [1.1, 0.42, -0.9], // Depan Kiri
+            [-1.1, 0.42, 0.9], // Belakang Kanan
+            [-1.1, 0.42, -0.9] // Belakang Kiri
+        ];
+
+        wheelPositions.forEach(pos => {
+            const wheelGroup = new THREE.Group();
+            const tire = new THREE.Mesh(wheelGeo, wheelMat);
+            const rim = new THREE.Mesh(rimGeo, rimMat);
+            tire.rotation.x = Math.PI / 2;
+            rim.rotation.x = Math.PI / 2;
+            wheelGroup.add(tire, rim);
+            wheelGroup.position.set(...pos);
+            vehicleGroup.add(wheelGroup);
+            wheels.push(wheelGroup);
+        });
+
+        // ============================================================================
+        // PEMBUATAN MODEL ATOM MOLEKUL GAS BUANG (CO2, NOx, CO & Polutan)
+        // ============================================================================
+        const atomSphereGeo = new THREE.SphereGeometry(0.14, 16, 16);
+        const smallAtomGeo = new THREE.SphereGeometry(0.10, 16, 16);
+        const bondGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.32, 8);
+
+        function createGasMolecule(type) {
+            const moleculeGroup = new THREE.Group();
+
+            if (type === 'CO2') {
+                // 🔴 Karbon Dioksida (CO₂) -> 1 Atom Karbon di tengah + 2 Atom Oksigen mengapit (O=C=O)
+                const matMain = new THREE.MeshStandardMaterial({
+                    color: DATA_GAS_EMISI.CO2.warnaUtama,
+                    emissive: DATA_GAS_EMISI.CO2.warnaUtama,
+                    emissiveIntensity: 0.35,
+                    roughness: 0.2
+                });
+                const matCenter = new THREE.MeshStandardMaterial({
+                    color: DATA_GAS_EMISI.CO2.warnaIkatan,
+                    roughness: 0.4
+                });
+
+                // Atom Karbon Pusat
+                const carbon = new THREE.Mesh(atomSphereGeo, matCenter);
+                // 2 Atom Oksigen di Kiri & Kanan
+                const oxy1 = new THREE.Mesh(smallAtomGeo, matMain);
+                oxy1.position.set(0.24, 0, 0);
+                const oxy2 = new THREE.Mesh(smallAtomGeo, matMain);
+                oxy2.position.set(-0.24, 0, 0);
+
+                // Batang Ikatan Kimia
+                const bond = new THREE.Mesh(bondGeo, matMain);
+                bond.rotation.z = Math.PI / 2;
+
+                moleculeGroup.add(carbon, oxy1, oxy2, bond);
+
+            } else if (type === 'NOx') {
+                // 🟡 Nitrogen Oksida (NOx) -> Ikatan Atom Nitrogen & Oksigen berbentuk sudut/diatomik
+                const matYellow = new THREE.MeshStandardMaterial({
+                    color: DATA_GAS_EMISI.NOx.warnaUtama,
+                    emissive: DATA_GAS_EMISI.NOx.warnaUtama,
+                    emissiveIntensity: 0.4,
+                    roughness: 0.2
+                });
+                const matDarkYellow = new THREE.MeshStandardMaterial({
+                    color: DATA_GAS_EMISI.NOx.warnaIkatan,
+                    roughness: 0.3
+                });
+
+                // Atom Nitrogen
+                const nitrogen = new THREE.Mesh(atomSphereGeo, matYellow);
+                // Atom Oksigen membentuk sudut V (NO2)
+                const oxyA = new THREE.Mesh(smallAtomGeo, matDarkYellow);
+                oxyA.position.set(0.18, 0.14, 0);
+                const oxyB = new THREE.Mesh(smallAtomGeo, matDarkYellow);
+                oxyB.position.set(-0.18, 0.14, 0);
+
+                moleculeGroup.add(nitrogen, oxyA, oxyB);
+
+            } else {
+                // 🟣 Karbon Monoksida (CO) dan Polutan Lain -> 1 Atom C + 1 Atom O serta kluster partikulat
+                const matPurple = new THREE.MeshStandardMaterial({
+                    color: DATA_GAS_EMISI.CO_POLUTAN.warnaUtama,
+                    emissive: DATA_GAS_EMISI.CO_POLUTAN.warnaUtama,
+                    emissiveIntensity: 0.4,
+                    roughness: 0.2
+                });
+                const matDarkPurple = new THREE.MeshStandardMaterial({
+                    color: DATA_GAS_EMISI.CO_POLUTAN.warnaIkatan,
+                    roughness: 0.4
+                });
+
+                const atomC = new THREE.Mesh(atomSphereGeo, matPurple);
+                atomC.position.set(-0.1, 0, 0);
+                const atomO = new THREE.Mesh(smallAtomGeo, matDarkPurple);
+                atomO.position.set(0.12, 0.08, 0);
+
+                // Partikel mikro polutan di sekitarnya
+                const soot = new THREE.Mesh(new THREE.DodecahedronGeometry(0.07), matPurple);
+                soot.position.set(0, -0.15, 0.1);
+
+                moleculeGroup.add(atomC, atomO, soot);
+            }
+
+            // Posisi awal tepat di mulut knalpot
+            moleculeGroup.position.set(
+                -2.3,
+                0.4 + (Math.random() - 0.5) * 0.1,
+                -0.55 + (Math.random() - 0.5) * 0.1
+            );
+
+            // Kecepatan gerak acak ke belakang (efek semburan gas buang)
+            moleculeGroup.userData = {
+                type: type,
+                vx: -(0.04 + Math.random() * 0.04), // Bergerak ke kiri (belakang truk)
+                vy: 0.008 + Math.random() * 0.018,  // Mengambang naik ke udara
+                vz: (Math.random() - 0.5) * 0.025,  // Menyebar ke samping
+                rotX: (Math.random() - 0.5) * 0.08,
+                rotY: (Math.random() - 0.5) * 0.08,
+                age: 0,
+                maxAge: 140 + Math.random() * 60
+            };
+
+            return moleculeGroup;
+        }
+
+        // ============================================================================
+        // SISTEM PARTIKEL EMISI GAS
+        // ============================================================================
+        const activeGasParticles = [];
+        const rpmSlider = document.getElementById('rpmSlider');
+
+        function spawnExhaustGas() {
+            const rand = Math.random();
+            let chosenType = 'CO2';
+
+            // Penentuan jenis gas yang keluar berdasarkan persentase emisi
+            if (rand < DATA_GAS_EMISI.CO2.rasioKemunculan) {
+                chosenType = 'CO2';        // 🔴 Karbon dioksida (CO₂)
+            } else if (rand < DATA_GAS_EMISI.CO2.rasioKemunculan + DATA_GAS_EMISI.NOx.rasioKemunculan) {
+                chosenType = 'NOx';        // 🟡 Nitrogen oksida (NOx)
+            } else {
+                chosenType = 'CO_POLUTAN'; // 🟣 Karbon monoksida (CO) & polutan lain
+            }
+
+            const gasAtom = createGasMolecule(chosenType);
+            scene.add(gasAtom);
+            activeGasParticles.push(gasAtom);
+        }
+
+        // ============================================================================
+        // LOOP ANIMASI UTAMA
+        // ============================================================================
+        let clock = new THREE.Clock();
+        let spawnCounter = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsedTime = clock.getElapsedTime();
+            const speedMultiplier = parseFloat(rpmSlider.value);
+
+            // 1. Putar roda kendaraan
+            wheels.forEach(w => {
+                w.rotation.z -= 0.08 * speedMultiplier;
+            });
+
+            // 2. Getaran mesin kendaraan pada bodi
+            vehicleGroup.position.y = Math.sin(elapsedTime * 35 * speedMultiplier) * 0.015;
+
+            // 3. Animasi marka jalan bergerak ke belakang
+            stripes.forEach(stripe => {
+                stripe.position.x -= 0.12 * speedMultiplier;
+                if (stripe.position.x < -25) {
+                    stripe.position.x = 25;
+                }
+            });
+
+            // 4. Keluarkan atom gas dari knalpot sesuai intensitas RPM
+            spawnCounter += speedMultiplier;
+            if (spawnCounter >= 1.2) {
+                spawnExhaustGas();
+                spawnCounter = 0;
+            }
+
+            // 5. Update pergerakan setiap atom gas di udara
+            for (let i = activeGasParticles.length - 1; i >= 0; i--) {
+                const p = activeGasParticles[i];
+                const data = p.userData;
+
+                // Gerakkan atom menjauh dari knalpot
+                p.position.x += data.vx * speedMultiplier;
+                p.position.y += data.vy;
+                p.position.z += data.vz;
+
+                // Rotasi molekul atom di udara
+                p.rotation.x += data.rotX;
+                p.rotation.y += data.rotY;
+
+                // Efek membesar sedikit rồi mengecil sebelum hilang di udara
+                data.age++;
+                const lifeRatio = data.age / data.maxAge;
+                if (lifeRatio < 0.2) {
+                    const s = 0.5 + (lifeRatio / 0.2) * 0.7;
+                    p.scale.set(s, s, s);
+                } else if (lifeRatio > 0.75) {
+                    const s = Math.max(0.01, (1 - lifeRatio) * 4);
+                    p.scale.set(s, s, s);
+                }
+
+                // Hapus atom jika sudah melewati batas usia
+                if (data.age >= data.maxAge) {
+                    scene.remove(p);
+                    activeGasParticles.splice(i, 1);
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Responsif terhadap perubahan ukuran layar
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
+

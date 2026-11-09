@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KEBAKARAN HUTAN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      border-radius: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #02050d;
+      color: #fff;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    .lbl {
+      position: absolute;
+      color: #fff;
+      background: rgba(2, 5, 13, 0.85);
+      border: 1px solid rgba(120, 190, 255, 0.38);
+      padding: 2px 6px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    #videoView {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      background: radial-gradient(circle at 50% 35%, rgba(255, 179, 71, 0.14) 0%, rgba(16, 42, 82, 0.45) 45%, #02050d 90%);
+    }
+
+    #videoView[hidden],
+    #info[hidden],
+    #errors:empty {
+      display: none !important;
+    }
+
+    #panel {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      width: 290px;
+      z-index: 3;
+      background: rgba(2, 5, 13, 0.84);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(120, 190, 255, 0.38);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    #panel.minimized {
+      width: 200px;
+    }
+
+    #panel.minimized .collapsible {
+      display: none !important;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #fff;
+    }
+
+    button, .back-link {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: #fff;
+      background: rgba(12, 24, 48, 0.55);
+      border: 1px solid rgba(120, 190, 255, 0.38);
+      padding: 6px 10px;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: left;
+      transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+      outline: none;
+    }
+
+    button:hover, button:focus-visible,
+    .back-link:hover, .back-link:focus-visible {
+      border-color: #ffb347;
+      color: #ffb347;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    #minBtn {
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .back-link {
+      display: inline-block;
+      width: 100%;
+    }
+
+    .sub-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.75);
+      letter-spacing: 0.05em;
+    }
+
+    .stage-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .stage-btns button {
+      width: 100%;
+    }
+
+    .stage-btns button.on {
+      border-color: #ffb347;
+      color: #ffb347;
+      background: rgba(255, 179, 71, 0.14);
+      font-weight: 600;
+    }
+
+    .chk-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .chk-row input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border: 1px solid rgba(120, 190, 255, 0.38);
+      background: rgba(2, 5, 13, 0.9);
+      cursor: pointer;
+      display: inline-grid;
+      place-content: center;
+    }
+
+    .chk-row input[type="checkbox"]:hover,
+    .chk-row input[type="checkbox"]:focus-visible {
+      border-color: #ffb347;
+    }
+
+    .chk-row input[type="checkbox"]:checked {
+      border-color: #ffb347;
+      background: #ffb347;
+    }
+
+    .chk-row input[type="checkbox"]:checked::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      background: #02050d;
+    }
+
+    #vidBtn {
+      width: 100%;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    #errors {
+      color: #ff9aa2;
+      font-size: 11px;
+      border: 1px solid rgba(255, 154, 162, 0.45);
+      background: rgba(80, 10, 20, 0.4);
+      padding: 6px 8px;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.65);
+      line-height: 1.4;
+    }
+
+    #info {
+      position: fixed;
+      left: 50%;
+      bottom: 12px;
+      transform: translateX(-50%);
+      width: calc(100% - 24px);
+      max-width: 680px;
+      max-height: 38svh;
+      overflow-y: auto;
+      z-index: 3;
+      background: rgba(2, 5, 13, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(120, 190, 255, 0.38);
+      padding: 14px 16px;
+    }
+
+    #info h2 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffb347;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    #info p {
+      font-size: 12.5px;
+      color: #fff;
+      line-height: 1.6;
+    }
+
+    #info hr {
+      border: none;
+      border-top: 1px solid rgba(120, 190, 255, 0.38);
+      margin: 12px 0;
+    }
+
+    @media (max-width: 600px) {
+      #panel,
+      #panel.minimized {
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-height: 45svh;
+        overflow-y: auto;
+      }
+
+      #info {
+        bottom: 0;
+        left: 0;
+        transform: none;
+        width: 100%;
+        max-width: 100%;
+        max-height: 34svh;
+        font-size: 11.5px;
+        padding: 10px 12px;
+      }
+
+      #info h2 {
+        font-size: 12px;
+      }
+
+      #info p {
+        font-size: 11.5px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="videoView" hidden></div>
+
+  <aside id="panel">
+    <div class="panel-header">
+      <div class="panel-title">KEBAKARAN HUTAN</div>
+      <button id="minBtn" type="button" aria-label="Kecilkan menu" title="Kecilkan menu">–</button>
+    </div>
+
+    <a href="/ar3.html" class="back-link collapsible">← Kembali</a>
+
+    <div class="sub-title collapsible">Tahap</div>
+    <div id="stageButtons" class="stage-btns collapsible">
+      <button id="b1" type="button" class="on">1 · Suhu meningkat</button>
+      <button id="b2" type="button">2 · Hutan menjadi kering</button>
+      <button id="b3" type="button">3 · Kebakaran hutan terjadi</button>
+      <button id="b4" type="button">4 · Asap menyebar &amp; habitat rusak</button>
+    </div>
+
+    <label class="chk-row collapsible" for="all">
+      <input type="checkbox" id="all" />
+      <span>Tampilkan semua tahap</span>
+    </label>
+
+    <button id="vidBtn" type="button">Ubah ke video</button>
+
+    <div id="errors" class="collapsible"></div>
+
+    <div class="hint collapsible">
+      Tombol 1–4 di keyboard untuk ganti tahap. Seret untuk memutar, scroll untuk zoom.
+    </div>
+  </aside>
+
+  <section id="info"></section>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const VIDEO_ID = 'GANTI_DENGAN_ID_VIDEO';
+
+    let registeredDef = null;
+    window.AFRAME = {
+      THREE: THREE,
+      registerComponent: function (name, def) {
+        registeredDef = def;
+      }
+    };
+
+    const panel = document.getElementById('panel');
+    const minBtn = document.getElementById('minBtn');
+    const stageButtons = document.getElementById('stageButtons');
+    const btns = [
+      document.getElementById('b1'),
+      document.getElementById('b2'),
+      document.getElementById('b3'),
+      document.getElementById('b4')
+    ];
+    const allChk = document.getElementById('all');
+    const vidBtn = document.getElementById('vidBtn');
+    const infoEl = document.getElementById('info');
+    const videoView = document.getElementById('videoView');
+    const errorsEl = document.getElementById('errors');
+
+    try {
+      await import('/model/kebakaran.js');
+    } catch (err) {
+      errorsEl.textContent = 'Gagal memuat kebakaran.js: ' + (err && err.message ? err.message : String(err));
+    }
+
+    const FALLBACK_INFO = [
+      {
+        judul: '1 · Suhu meningkat',
+        teks: 'Suhu udara naik akibat cuaca ekstrem dan pemanasan global. Tanah mulai kehilangan kelembapan dan tumbuhan mulai layu.'
+      },
+      {
+        judul: '2 · Hutan menjadi kering',
+        teks: 'Daun gugur dan menumpuk, tanah retak, semak mengering. Hutan berubah menjadi bahan bakar alami yang mudah tersulut.'
+      },
+      {
+        judul: '3 · Kebakaran hutan terjadi',
+        teks: 'Percikan api dari puntung rokok, pembukaan lahan dengan membakar, atau petir menyulut kobaran yang cepat menjalar lewat serasah kering.'
+      },
+      {
+        judul: '4 · Asap menyebar & habitat rusak',
+        teks: 'Asap menyebar dan menurunkan kualitas udara. Pohon hangus, satwa kehilangan tempat tinggal dan sumber makanan.'
+      }
+    ];
+
+    function getStagesInfo() {
+      const kInfo = window.KEBAKARAN && Array.isArray(window.KEBAKARAN.INFO) ? window.KEBAKARAN.INFO : null;
+      if (!kInfo || !kInfo.length) return FALLBACK_INFO;
+      return kInfo.map((item, i) => ({
+        judul: `${i + 1} · ${item.judul}`,
+        teks: item.teks
+      }));
+    }
+
+    function updateInfoCard() {
+      const list = getStagesInfo();
+      if (allChk.checked) {
+        infoEl.innerHTML = list.map((s) => (
+          `<div><h2>${s.judul}</h2><p>${s.teks}</p></div>`
+        )).join('<hr />');
+        return;
+      }
+
+      let activeIdx = btns.findIndex((b) => b.classList.contains('on'));
+      if (activeIdx < 0) activeIdx = 0;
+      const item = list[activeIdx] || list[0];
+      infoEl.innerHTML = `<h2>${item.judul}</h2><p>${item.teks}</p>`;
+    }
+
+    const observer = new MutationObserver(() => {
+      updateInfoCard();
+    });
+
+    observer.observe(stageButtons, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: ['class']
+    });
+
+    updateInfoCard();
+
+    const appEl = document.getElementById('app');
+    const scene = new THREE.Scene();
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.shadowMap.enabled = true;
+    appEl.appendChild(renderer.domElement);
+
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 500);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    const hemi = new THREE.HemisphereLight(0xffe8c8, 0x3b2d22, 1.15);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.2);
+    dirLight.position.set(14, 24, 16);
+    dirLight.castShadow = true;
+    scene.add(hemi, dirLight);
+
+    function resizeMain() {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resizeMain);
+    resizeMain();
+
+    let compInstance = null;
+    if (registeredDef) {
+      compInstance = Object.create(registeredDef);
+      compInstance.el = {
+        setObject3D: function (name, obj) {
+          scene.add(obj);
+        }
+      };
+      compInstance.init();
+    }
+
+    const STAGE_GRID = [
+      [-11.5, 0, -11.5],
+      [11.5, 0, -11.5],
+      [-11.5, 0, 11.5],
+      [11.5, 0, 11.5]
+    ];
+
+    let currentStage = 1;
+
+    function frameMainCamera(showAll) {
+      if (showAll) {
+        camera.position.set(0, 32, 46);
+        controls.target.set(0, 1, 0);
+      } else {
+        camera.position.set(0, 11, 24);
+        controls.target.set(0, 2, 0);
+      }
+      controls.update();
+    }
+
+    function applyStageState() {
+      const showAll = allChk.checked;
+      const K = window.KEBAKARAN;
+
+      if (K && Array.isArray(K.stages) && K.stages.length) {
+        if (showAll) {
+          K.stages.forEach((g, idx) => {
+            g.visible = true;
+            const pos = STAGE_GRID[idx] || [0, 0, 0];
+            g.position.set(pos[0], pos[1], pos[2]);
+          });
+        } else {
+          K.stages.forEach((g) => {
+            g.position.set(0, 0, 0);
+          });
+          if (typeof K.setStage === 'function') {
+            K.setStage(currentStage);
+          }
+        }
+      }
+
+      btns.forEach((b, idx) => {
+        const shouldOn = !showAll && (idx + 1 === currentStage);
+        b.classList.toggle('on', shouldOn);
+      });
+
+      updateInfoCard();
+    }
+
+    function selectStage(n) {
+      currentStage = Math.min(4, Math.max(1, n));
+      if (allChk.checked) {
+        allChk.checked = false;
+        frameMainCamera(false);
+      }
+      applyStageState();
+    }
+
+    btns.forEach((b, idx) => {
+      b.addEventListener('click', () => selectStage(idx + 1));
+    });
+
+    allChk.addEventListener('change', () => {
+      applyStageState();
+      frameMainCamera(allChk.checked);
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.target instanceof HTMLInputElement && e.target.type !== 'checkbox') return;
+      if (/^[1-4]$/.test(e.key)) {
+        selectStage(Number(e.key));
+      }
+    });
+
+    applyStageState();
+    frameMainCamera(false);
+
+    let videoMode = false;
+    const mainClock = new THREE.Clock();
+
+    renderer.setAnimationLoop(() => {
+      if (videoMode) return;
+      const dt = mainClock.getDelta() * 1000;
+      if (compInstance && typeof compInstance.tick === 'function') {
+        compInstance.tick(performance.now(), dt);
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    });
+
+    minBtn.addEventListener('click', () => {
+      const isMin = panel.classList.toggle('minimized');
+      minBtn.textContent = isMin ? '+' : '–';
+      const label = isMin ? 'Buka menu' : 'Kecilkan menu';
+      minBtn.setAttribute('aria-label', label);
+      minBtn.setAttribute('title', label);
+    });
+
+    let videoSceneInit = false;
+    let animFrameId = null;
+    let iframeEl = null;
+    let startLoop = null;
+    let stopLoop = null;
+
+    async function initVideo3D() {
+      if (videoSceneInit) return;
+      try {
+        const THREE_MOD = await import('three');
+        const { OrbitControls: VideoOrbitControls } = await import('three/addons/controls/OrbitControls.js');
+        const { CSS3DRenderer, CSS3DObject } = await import('three/addons/renderers/CSS3DRenderer.js');
+
+        const W = 960;
+        const H = 540;
+        const MARGIN = 22;
+        const DEPTH = 34;
+
+        const sceneGL = new THREE_MOD.Scene();
+        const sceneCSS = new THREE_MOD.Scene();
+
+        const vCamera = new THREE_MOD.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 5000);
+
+        const webglRenderer = new THREE_MOD.WebGLRenderer({ antialias: true, alpha: true });
+        webglRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        webglRenderer.domElement.style.position = 'absolute';
+        webglRenderer.domElement.style.inset = '0';
+        webglRenderer.domElement.style.zIndex = '1';
+        webglRenderer.domElement.style.pointerEvents = 'none';
+
+        const cssRenderer = new CSS3DRenderer();
+        cssRenderer.domElement.style.position = 'absolute';
+        cssRenderer.domElement.style.inset = '0';
+        cssRenderer.domElement.style.zIndex = '2';
+
+        videoView.appendChild(webglRenderer.domElement);
+        videoView.appendChild(cssRenderer.domElement);
+
+        const floatGroupGL = new THREE_MOD.Group();
+        const floatGroupCSS = new THREE_MOD.Group();
+        sceneGL.add(floatGroupGL);
+        sceneCSS.add(floatGroupCSS);
+
+        const boxW = W + MARGIN * 2;
+        const boxH = H + MARGIN * 2;
+        const boxGeo = new THREE_MOD.BoxGeometry(boxW, boxH, DEPTH);
+        const sideMaterials = [
+          new THREE_MOD.MeshBasicMaterial({ color: 0x0b1d3a }),
+          new THREE_MOD.MeshBasicMaterial({ color: 0x09172e }),
+          new THREE_MOD.MeshBasicMaterial({ color: 0x10274d }),
+          new THREE_MOD.MeshBasicMaterial({ color: 0x071224 }),
+          new THREE_MOD.MeshBasicMaterial({ color: 0x050d1a }),
+          new THREE_MOD.MeshBasicMaterial({ color: 0x0d2142 })
+        ];
+        const frameMesh = new THREE_MOD.Mesh(boxGeo, sideMaterials);
+        frameMesh.position.z = -DEPTH / 2 - 1;
+        floatGroupGL.add(frameMesh);
+
+        const edgesGeo = new THREE_MOD.EdgesGeometry(boxGeo);
+        const edgesMat = new THREE_MOD.LineBasicMaterial({ color: 0xffb347 });
+        const edgesMesh = new THREE_MOD.LineSegments(edgesGeo, edgesMat);
+        edgesMesh.position.copy(frameMesh.position);
+        floatGroupGL.add(edgesMesh);
+
+        const wrapper = document.createElement('div');
+        wrapper.style.width = `${W}px`;
+        wrapper.style.height = `${H}px`;
+        wrapper.style.background = '#02050d';
+        wrapper.style.border = '1px solid rgba(120, 190, 255, 0.38)';
+
+        iframeEl = document.createElement('iframe');
+        iframeEl.style.width = '100%';
+        iframeEl.style.height = '100%';
+        iframeEl.style.border = '0';
+        iframeEl.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+        iframeEl.setAttribute('allowfullscreen', '');
+        iframeEl.src = 'about:blank';
+        wrapper.appendChild(iframeEl);
+
+        const cssObject = new CSS3DObject(wrapper);
+        cssObject.position.set(0, 0, 0);
+        floatGroupCSS.add(cssObject);
+
+        const starCount = 900;
+        const starPositions = new Float32Array(starCount * 3);
+        const starColors = new Float32Array(starCount * 3);
+        const cWhite = new THREE_MOD.Color(0xffffff);
+        const cAmber = new THREE_MOD.Color(0xffb347);
+
+        for (let i = 0; i < starCount; i++) {
+          const r = 750 + Math.random() * 1400;
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(2 * Math.random() - 1);
+          starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+          starPositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+          starPositions[i * 3 + 2] = r * Math.cos(phi);
+
+          const col = Math.random() < 0.16 ? cAmber : cWhite;
+          starColors[i * 3] = col.r;
+          starColors[i * 3 + 1] = col.g;
+          starColors[i * 3 + 2] = col.b;
+        }
+
+        const starsGeo = new THREE_MOD.BufferGeometry();
+        starsGeo.setAttribute('position', new THREE_MOD.BufferAttribute(starPositions, 3));
+        starsGeo.setAttribute('color', new THREE_MOD.BufferAttribute(starColors, 3));
+        const starsMat = new THREE_MOD.PointsMaterial({
+          size: 4,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.85
+        });
+        const stars = new THREE_MOD.Points(starsGeo, starsMat);
+        sceneGL.add(stars);
+
+        const vControls = new VideoOrbitControls(vCamera, cssRenderer.domElement);
+        vControls.enablePan = false;
+        vControls.enableDamping = true;
+        vControls.dampingFactor = 0.06;
+        vControls.minAzimuthAngle = -0.7;
+        vControls.maxAzimuthAngle = 0.7;
+        vControls.minPolarAngle = Math.PI / 2 - 0.55;
+        vControls.maxPolarAngle = Math.PI / 2 + 0.55;
+
+        function fitCamera() {
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          vCamera.aspect = w / h;
+          vCamera.updateProjectionMatrix();
+          webglRenderer.setSize(w, h);
+          cssRenderer.setSize(w, h);
+
+          const fovRad = THREE_MOD.MathUtils.degToRad(vCamera.fov);
+          const distH = (boxH / 2) / Math.tan(fovRad / 2);
+          const distW = (boxW / 2) / (Math.tan(fovRad / 2) * vCamera.aspect);
+          const dist = Math.max(distH, distW) * 1.22;
+
+          const dir = vCamera.position.clone().sub(vControls.target);
+          if (dir.lengthSq() < 1e-4) {
+            vCamera.position.set(0, 0, dist);
+          } else {
+            dir.normalize().multiplyScalar(dist);
+            vCamera.position.copy(vControls.target).add(dir);
+          }
+          vControls.minDistance = dist * 0.65;
+          vControls.maxDistance = dist * 1.85;
+          vControls.update();
+        }
+
+        window.addEventListener('resize', () => {
+          if (videoMode) fitCamera();
+        });
+
+        fitCamera();
+
+        const clock = new THREE_MOD.Clock();
+
+        function renderLoop() {
+          if (!videoMode) return;
+          animFrameId = requestAnimationFrame(renderLoop);
+          const t = clock.getElapsedTime();
+          const floatY = Math.sin(t * 1.1) * 10;
+          floatGroupGL.position.y = floatY;
+          floatGroupCSS.position.y = floatY;
+          stars.rotation.y = t * 0.025;
+          stars.rotation.x = t * 0.01;
+          vControls.update();
+          webglRenderer.render(sceneGL, vCamera);
+          cssRenderer.render(sceneCSS, vCamera);
+        }
+
+        startLoop = () => {
+          fitCamera();
+          clock.start();
+          if (!animFrameId) renderLoop();
+        };
+
+        stopLoop = () => {
+          if (animFrameId) {
+            cancelAnimationFrame(animFrameId);
+            animFrameId = null;
+          }
+        };
+
+        videoSceneInit = true;
+      } catch (err) {
+        errorsEl.textContent = 'Mode video gagal: ' + (err && err.message ? err.message : String(err));
+        throw err;
+      }
+    }
+
+    vidBtn.addEventListener('click', async () => {
+      if (!videoMode) {
+        try {
+          await initVideo3D();
+          videoMode = true;
+          videoView.hidden = false;
+          infoEl.hidden = true;
+          vidBtn.textContent = 'Ubah ke 3D model';
+          if (iframeEl) {
+            iframeEl.src = `https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&rel=0`;
+          }
+          if (startLoop) startLoop();
+        } catch (_) {
+          videoMode = false;
+        }
+      } else {
+        videoMode = false;
+        if (stopLoop) stopLoop();
+        if (iframeEl) {
+          iframeEl.src = 'about:blank';
+        }
+        videoView.hidden = true;
+        infoEl.hidden = false;
+        vidBtn.textContent = 'Ubah ke video';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Viewer Diorama</title>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #202830; font-family: system-ui, sans-serif; }
+    #app { position: fixed; inset: 0; }
+    #app canvas { display: block; }
+
+    #panel {
+      position: fixed; top: 12px; left: 12px; z-index: 10; width: 260px; max-height: calc(100vh - 24px);
+      overflow-y: auto; box-sizing: border-box; padding: 12px; color: #fff; font-size: 13px;
+      background: rgba(0, 0, 0, .65); border-radius: 10px; backdrop-filter: blur(4px);
+    }
+    #panel h1 { margin: 0 0 8px; font-size: 15px; letter-spacing: .5px; }
+    #panel h2 { margin: 12px 0 6px; font-size: 12px; opacity: .7; letter-spacing: 1px; font-weight: 600; }
+    #panel select {
+      width: 100%; padding: 8px; font: inherit; color: #fff; background: #2b3540;
+      border: 1px solid rgba(255, 255, 255, .3); border-radius: 6px;
+    }
+    #panel button {
+      padding: 8px 6px; font: inherit; color: #fff; cursor: pointer;
+      background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .3); border-radius: 6px;
+    }
+    #panel button:hover { background: rgba(255, 255, 255, .25); }
+    #panel button.on, #panel button.active { background: #2f8cff; border-color: #2f8cff; }
+    #panel button:disabled { opacity: .4; cursor: not-allowed; }
+    #panel label { display: flex; align-items: center; gap: 6px; margin: 10px 0; cursor: pointer; }
+    #panel ul { margin: 0; padding-left: 16px; line-height: 1.6; font-size: 12px; opacity: .9; }
+    #panel li.warn { color: #ffb74d; }
+    #panel li.pending { opacity: .5; }
+    #panel li span:first-child { margin-right: 8px; }
+    #panel .stages, #stageButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    #panel .exports { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    #panel .wide { width: 100%; margin-top: 6px; }
+    #total { margin-top: 6px; font-weight: 600; }
+    #errors, #muatError { margin-top: 8px; color: #ff8a80; white-space: pre-wrap; font-size: 12px; }
+    .hint { margin-top: 10px; font-size: 11px; opacity: .6; line-height: 1.4; }
+    #gStageButtons { display: grid; grid-template-columns: 1fr; gap: 6px; }
+    #gStageButtons button { text-align: left; }
+    #gInfo {
+      position: fixed; left: 12px; bottom: 12px; z-index: 10; max-width: min(440px, calc(100vw - 24px));
+      padding: 12px 14px; color: #fff; font-size: 13px; line-height: 1.55; background: rgba(0, 0, 0, .72);
+      border-radius: 8px; pointer-events: none;
+    }
+    #gInfo b { display: block; margin-bottom: 4px; font-size: 14px; }
+    #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    #tabs { display: grid; grid-template-columns: 1fr; gap: 6px; }
+    #tabs button { text-align: left; }
+    #msg { margin-top: 8px; font-size: 12px; opacity: .85; line-height: 1.4; }
+    .lbl small { display: block; opacity: .7; font-size: 10px; }
+    [hidden] { display: none !important; }
+
+    #status {
+      position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 20;
+      padding: 8px 14px; color: #fff; font-size: 13px; background: rgba(0, 0, 0, .75);
+      border-radius: 6px; opacity: 0; pointer-events: none; transition: opacity .25s;
+    }
+    #status.show { opacity: 1; }
+
+    .lbl { padding: 3px 8px; color: #fff; font-size: 12px; white-space: nowrap; background: rgba(0, 0, 0, .55); border-radius: 4px; }
+
+    @media (max-width: 600px) { #panel { width: 210px; font-size: 12px; } }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <canvas id="c" hidden></canvas>
+  <div id="status"></div>
+
+  <div id="panel">
+    <h1>VIEWER DIORAMA</h1>
+    <select id="pilihModel" aria-label="Pilih model"></select>
+    <div id="muatError"></div>
+
+    <!-- UI untuk model bertipe "banjir" (banjir.js dan sejenisnya) -->
+    <template id="ui-banjir"><div>
+      <h2>TAHAP</h2>
+      <div class="stages">
+        <button id="b1" type="button">1</button>
+        <button id="b2" type="button">2</button>
+        <button id="b3" type="button">3</button>
+        <button id="b4" type="button">4</button>
+      </div>
+      <label><input type="checkbox" id="all" /> Tampilkan semua tahap</label>
+      <h2>SEGITIGA</h2>
+      <ul id="list"></ul>
+      <div id="total"></div>
+      <h2>EKSPOR GLB</h2>
+      <div class="exports">
+        <button id="e1" type="button">1</button>
+        <button id="e2" type="button">2</button>
+        <button id="e3" type="button">3</button>
+        <button id="e4" type="button">4</button>
+      </div>
+      <button id="exEach" class="wide" type="button">Ekspor semua (4 file)</button>
+      <div id="errors"></div>
+    </div></template>
+
+    <!-- UI untuk model bertipe "ice" (ice.js gabungan) -->
+    <template id="ui-ice"><div>
+      <h2>TAHAP</h2>
+      <div id="stageButtons"></div>
+      <label><input type="checkbox" id="showAll" /> Tampilkan semua tahap</label>
+      <h2>SEGITIGA</h2>
+      <ul id="stats"></ul>
+      <h2>EKSPOR GLB</h2>
+      <button id="btnExportAll" class="wide" type="button">Ekspor semua tahap (1 file)</button>
+      <button id="btnExportEach" class="wide" type="button">Ekspor per tahap</button>
+    </div></template>
+
+    <!-- UI untuk model bertipe "aframe" (kebakaran.js dkk: file A-Frame tanpa viewer sendiri) -->
+    <template id="ui-generik"><div>
+      <h2>TAHAP</h2>
+      <div id="gStageButtons"></div>
+    </div></template>
+
+    <!-- UI untuk model bertipe "kk1" (kekeringan_1.js: ES module dengan canvas #c) -->
+    <template id="ui-kk1"><div>
+      <h2>TAHAP</h2>
+      <div id="tabs"></div>
+      <label><input type="checkbox" id="all" /> Tampilkan semua tahap</label>
+      <div id="msg"></div>
+      <h2>SEGITIGA</h2>
+      <ul id="stats"></ul>
+      <h2>EKSPOR GLB</h2>
+      <button id="exportAll" class="wide" type="button">Ekspor semua tahap (1 file)</button>
+      <button id="exportEach" class="wide" type="button">Ekspor per tahap</button>
+    </div></template>
+
+    <div class="hint">Tombol keyboard 1–4 untuk ganti tahap. Seret untuk memutar, scroll untuk zoom.</div>
+  </div>
+  <div id="gInfo" hidden></div>
+
+  <script>
+    /* ====================== DAFTAR MODEL ======================
+       Tambah model baru cukup dengan satu baris di sini.
+         id    : nama untuk ?model=...
+         label : teks di dropdown
+         file  : path file model
+         type  : 'module'  -> file ES module yang menjalankan viewer sendiri (seperti banjir.js)
+                 'classic' -> file biasa (seperti ice.js gabungan, mode viewer otomatis tanpa A-Frame)
+                 'aframe'  -> file khusus A-Frame tanpa viewer sendiri (seperti kebakaran.js: memakai AFRAME.THREE
+                              dan AFRAME.registerComponent). Viewer menyediakan A-Frame tiruan, lalu menampilkan
+                              modelnya sendiri dengan tombol tahap + penjelasan.
+         ui    : blok panel yang dipakai: 'banjir' | 'ice' | 'generik' | 'kk1' (id elemen yang dibaca file model)
+                 TIPE HARUS COCOK DENGAN ISI FILE: file yang diawali 'import ...' = 'module'; file yang memakai
+                 AFRAME.registerComponent / window.MODEL_CONFIG = 'aframe'.
+       Satu halaman hanya memuat satu model; berganti model = muat ulang halaman dengan ?model=id
+       (supaya renderer, animasi, dan id elemen tiap model tidak saling bentrok). */
+    const MODELS = [
+      { id: 'ice',        label: 'Es / Perubahan Iklim', file: 'model/ice.js',        type: 'classic', ui: 'ice' },
+      { id: 'banjir',     label: 'Banjir',               file: 'model/banjir.js',     type: 'module',  ui: 'banjir' },
+      { id: 'kebakaran',  label: 'Kebakaran',            file: 'model/kebakaran.js',  type: 'aframe',  ui: 'generik' },
+  
+      { id: 'kekeringan', label: 'Kekeringan',           file: 'model/kekeringan.js', type: 'module',  ui: 'kk1' },
+      { id: 'pabrik',     label: 'Pabrik',               file: 'model/pabrik.js',     type: 'aframe',  ui: 'generik' },
+    ];
+
+    (function () {
+      const sel = document.getElementById('pilihModel');
+      const err = document.getElementById('muatError');
+      const param = new URLSearchParams(location.search).get('model');
+      const aktif = MODELS.find(function (m) { return m.id === param; }) || MODELS[0];
+
+      MODELS.forEach(function (m) {
+        const o = document.createElement('option');
+        o.value = m.id; o.textContent = m.label; o.selected = m.id === aktif.id;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () {
+        const u = new URL(location.href);
+        u.searchParams.set('model', sel.value);
+        location.href = u.toString();
+      });
+
+      // sisipkan hanya blok UI milik model terpilih (mencegah id ganda antar-model)
+      const tpl = document.getElementById('ui-' + aktif.ui);
+      document.getElementById('panel').insertBefore(tpl.content.cloneNode(true), document.querySelector('#panel .hint'));
+      if (aktif.ui === 'kk1') document.getElementById('c').hidden = false;
+      document.title = 'Viewer Diorama - ' + aktif.label;
+
+      function gagal(e) {
+        err.textContent = 'Gagal memuat ' + aktif.file + ': ' + ((e && e.message) || e) +
+          '\nPastikan file ada di folder yang sama dan halaman dibuka lewat server lokal (bukan file://).';
+        console.error(e);
+      }
+
+      // Ubah path relatif (dengan atau tanpa './') menjadi URL penuh, supaya import() tidak
+      // menganggapnya "bare specifier" (penyebab error 'Failed to resolve module specifier').
+      const url = new URL(aktif.file, location.href).href;
+
+      if (aktif.type === 'aframe') {
+        // dijalankan oleh <script type="module"> di bawah (butuh three)
+        window.__pakaiAframe = { url: url, label: aktif.label };
+      } else if (aktif.type === 'classic') {
+        const s = document.createElement('script');
+        s.src = url;
+        s.onerror = function () { gagal(new Error('file tidak ditemukan: ' + url)); };
+        document.body.appendChild(s);
+      } else {
+        import(url).catch(gagal);
+      }
+    })();
+  </script>
+
+  <!-- Viewer generik untuk model bertipe "aframe" -->
+  <script type="module">
+    if (window.__pakaiAframe) {
+      const THREE = await import('three');
+      const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+      const errEl = document.getElementById('muatError');
+      const infoEl = document.getElementById('gInfo');
+      const btnWrap = document.getElementById('gStageButtons');
+      const gagal = (e) => { console.error(e); errEl.textContent = 'Gagal menampilkan model: ' + ((e && e.message) || e); };
+
+      try {
+        // A-Frame tiruan: THREE milik halaman + penangkap registerComponent
+        const comps = {};
+        window.AFRAME = { THREE: Object.assign({}, THREE), registerComponent: (n, d) => { comps[n] = d; } };
+        await new Promise((ok, no) => {
+          const s = document.createElement('script');
+          s.src = window.__pakaiAframe.url;
+          s.onload = ok;
+          s.onerror = () => no(new Error('file tidak ditemukan: ' + window.__pakaiAframe.url));
+          document.body.appendChild(s);
+        });
+
+        const cfg = window.MODEL_CONFIG || {};
+        if (!cfg.komponen) throw new Error('file ini bukan komponen A-Frame (tidak mengisi MODEL_CONFIG). Bila isinya diawali "import ...", ubah type di MODELS menjadi \'module\'.');
+        const def = comps[cfg.komponen];
+        if (!def) throw new Error('komponen "' + cfg.komponen + '" tidak terdaftar oleh file model');
+
+        // Jalankan komponen tanpa A-Frame: entity tiruan menampung object3D 'mesh'
+        // sceneEl & el memakai EventTarget asli agar addEventListener/removeEventListener/dispatchEvent berfungsi
+        let mesh = null;
+        const sceneTiruan = new EventTarget();
+        const elTiruan = new EventTarget();
+        Object.assign(elTiruan, {
+          object3D: new THREE.Object3D(), sceneEl: sceneTiruan, emit() {},
+          setObject3D(n, o) { mesh = o; }, getObject3D() { return mesh; }, removeObject3D() {},
+        });
+        const inst = Object.assign({}, def);
+        inst.data = {};
+        inst.el = elTiruan;
+        inst.init();
+        if (!mesh) throw new Error('komponen tidak menghasilkan objek 3D');
+        // Model yang punya kartu info sendiri (mis. kekeringan.js) menampilkannya saat target terdeteksi
+        sceneTiruan.dispatchEvent(new Event('markerFound'));
+
+        // API tahap (mis. window.KEBAKARAN: jumlah, INFO, setStage) dicari otomatis
+        const apiKey = Object.keys(window).find((k) => window[k] && typeof window[k].setStage === 'function' && window[k].jumlah);
+        const K = apiKey ? window[apiKey] : null;
+
+        // Scene
+        const app = document.getElementById('app');
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+        app.appendChild(renderer.domElement);
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#9db7cc');
+        scene.add(new THREE.HemisphereLight(0xdfe8f0, 0x6b6a55, 1.2));
+        const sun = new THREE.DirectionalLight(0xffffff, 2);
+        sun.position.set(40, 60, 30);
+        scene.add(sun, mesh);
+
+        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        const box = new THREE.Box3().setFromObject(mesh);
+        const size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
+        const dist = Math.max(size.x, size.y, size.z) * 1.7;
+        camera.position.set(ctr.x, ctr.y + size.y * 0.5, ctr.z + dist);
+        controls.target.copy(ctr);
+        controls.update();
+
+        // Tombol tahap + penjelasan
+        const jumlah = K ? K.jumlah : 0;
+        const INFO = (K && K.INFO) || [];
+        const tombol = [];
+        function pilih(n) {
+          if (!K) return;
+          K.setStage(n);
+          tombol.forEach((b, i) => b.classList.toggle('on', i === n - 1));
+          const inf = INFO[n - 1];
+          infoEl.hidden = !inf;
+          if (inf) {
+            infoEl.textContent = '';
+            const t = document.createElement('b');
+            t.textContent = 'Tahap ' + n + ': ' + inf.judul;
+            infoEl.append(t, inf.teks);
+          }
+        }
+        for (let n = 1; n <= jumlah; n++) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = n + ' · ' + ((INFO[n - 1] && INFO[n - 1].judul) || 'Tahap ' + n);
+          b.addEventListener('click', () => pilih(n));
+          btnWrap.appendChild(b);
+          tombol.push(b);
+        }
+        addEventListener('keydown', (e) => { const n = +e.key; if (n >= 1 && n <= jumlah) pilih(n); });
+        pilih((K && K.tahap) || 1);
+
+        function resize() {
+          renderer.setSize(innerWidth, innerHeight);
+          camera.aspect = innerWidth / innerHeight;
+          camera.updateProjectionMatrix();
+        }
+        addEventListener('resize', resize);
+        resize();
+
+        const clock = new THREE.Clock();
+        renderer.setAnimationLoop(() => {
+          const dt = clock.getDelta() * 1000;
+          if (def.tick) inst.tick(clock.elapsedTime * 1000, dt);
+          controls.update();
+          renderer.render(scene, camera);
+        });
+      } catch (e) { gagal(e); }
+    }
+  </script>
+</body>
+</html>

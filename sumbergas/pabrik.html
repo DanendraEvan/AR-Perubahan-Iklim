@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Model Pabrik Low-Poly</title>
+<style>
+:root{--bg:#b9c7d4;--text:#17202a;color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a2230;--text:#e6ecf2}}
+:root[data-theme="dark"]{--bg:#1a2230;--text:#e6ecf2}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;overflow:hidden}
+canvas{display:block;position:fixed;inset:0;width:100%;height:100%;touch-action:none}
+#ui{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(260px,calc(100vw - 24px));padding:10px 14px;border-radius:12px;font-size:13px;background:color-mix(in srgb,var(--bg) 80%,transparent);border:1px solid rgba(128,128,128,.3);backdrop-filter:blur(6px)}
+#ui label{display:flex;justify-content:space-between;margin-top:6px}
+#ui input{width:100%;accent-color:#d9531e}
+</style>
+</head>
+<body>
+<div id="ui">
+  <b>Pabrik Industri</b>
+  <label><span>Emisi asap</span><span id="e">0.85</span></label>
+  <input type="range" id="er" min="0.2" max="2" step="0.05" value="0.85">
+  <label><span>Kecepatan angin</span><span id="w">18</span></label>
+  <input type="range" id="wr" min="0" max="40" step="1" value="18">
+  <div style="opacity:.65;margin-top:8px">Seret untuk memutar · scroll untuk zoom</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+function createModelPabrik(scene = null) {
+    const rootGroup = new THREE.Group();
+    rootGroup.name = 'ModelPabrikLowPoly';
+    if (scene) scene.add(rootGroup);
+
+    const materials = {
+        ground: new THREE.MeshStandardMaterial({ color: 0x3b4238, roughness: 0.9, flatShading: true }),
+        earth: new THREE.MeshStandardMaterial({ color: 0x262320, roughness: 1.0, flatShading: true }),
+        asphalt: new THREE.MeshStandardMaterial({ color: 0x1e2229, roughness: 0.85, flatShading: true }),
+        concrete: new THREE.MeshStandardMaterial({ color: 0x646e78, roughness: 0.85, flatShading: true }),
+        darkConcrete: new THREE.MeshStandardMaterial({ color: 0x3f464f, roughness: 0.9, flatShading: true }),
+        brickMain: new THREE.MeshStandardMaterial({ color: 0x8f3d2e, roughness: 0.8, flatShading: true }),
+        brickDark: new THREE.MeshStandardMaterial({ color: 0x69291e, roughness: 0.85, flatShading: true }),
+        roofMetal: new THREE.MeshStandardMaterial({ color: 0x333c4a, roughness: 0.6, metalness: 0.3, flatShading: true }),
+        steel: new THREE.MeshStandardMaterial({ color: 0x82909e, roughness: 0.45, metalness: 0.65, flatShading: true }),
+        darkSteel: new THREE.MeshStandardMaterial({ color: 0x272d36, roughness: 0.5, metalness: 0.7, flatShading: true }),
+        pipeYellow: new THREE.MeshStandardMaterial({ color: 0xd98218, roughness: 0.35, metalness: 0.4, flatShading: true }),
+        stripeRed: new THREE.MeshStandardMaterial({ color: 0xc92a2a, roughness: 0.6, flatShading: true }),
+        stripeWhite: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.6, flatShading: true }),
+        windowGlow: new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xff9f1c, emissiveIntensity: 1.4, roughness: 0.2 }),
+        furnaceGlow: new THREE.MeshStandardMaterial({ color: 0xff5400, emissive: 0xff2a00, emissiveIntensity: 2.2 }),
+        beaconMat: new THREE.MeshStandardMaterial({ color: 0xff3b30, emissive: 0xff1e00, emissiveIntensity: 3.0 }),
+        treeTrunk: new THREE.MeshStandardMaterial({ color: 0x4a3525, roughness: 0.9, flatShading: true }),
+        leafAutumn1: new THREE.MeshStandardMaterial({ color: 0x606c38, roughness: 0.8, flatShading: true }),
+        leafAutumn2: new THREE.MeshStandardMaterial({ color: 0xbc6c25, roughness: 0.8, flatShading: true })
+    };
+
+    const enableShadow = (mesh, cast = true, receive = true) => {
+        mesh.castShadow = cast;
+        mesh.receiveShadow = receive;
+        return mesh;
+    };
+
+    // 2. Pulau daratan & jalan
+    const islandGroup = new THREE.Group();
+
+    const topLandGeo = new THREE.CylinderGeometry(36, 34, 2.2, 16);
+    const posAttr = topLandGeo.attributes.position;
+    for (let i = 0; i < posAttr.count; i++) {
+        const vx = posAttr.getX(i), vz = posAttr.getZ(i);
+        const dist = Math.sqrt(vx * vx + vz * vz);
+        if (dist > 28) {
+            const angle = Math.atan2(vz, vx);
+            const noise = Math.sin(angle * 5) * 1.5 + Math.cos(angle * 3) * 1.2;
+            posAttr.setX(i, vx + (vx / dist) * noise);
+            posAttr.setZ(i, vz + (vz / dist) * noise);
+        }
+    }
+    topLandGeo.computeVertexNormals();
+    const topLand = enableShadow(new THREE.Mesh(topLandGeo, materials.ground), false, true);
+    topLand.position.y = -1.1;
+    islandGroup.add(topLand);
+
+    const baseRock = enableShadow(new THREE.Mesh(new THREE.CylinderGeometry(33, 21, 7, 14), materials.earth), false, true);
+    baseRock.position.y = -5.5;
+    islandGroup.add(baseRock);
+
+    const yardSlab = enableShadow(new THREE.Mesh(new THREE.BoxGeometry(44, 0.35, 36), materials.concrete), false, true);
+    yardSlab.position.set(0, 0.15, 0);
+    islandGroup.add(yardSlab);
+
+    const road = enableShadow(new THREE.Mesh(new THREE.BoxGeometry(46, 0.38, 7.5), materials.asphalt), false, true);
+    road.position.set(0, 0.17, 13.5);
+    islandGroup.add(road);
+
+    for (let i = -20; i <= 20; i += 4.5) {
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.4, 0.25), materials.stripeWhite);
+        stripe.position.set(i, 0.18, 13.5);
+        islandGroup.add(stripe);
+    }
+    rootGroup.add(islandGroup);
+
+    // 3. Gedung utama
+    const mainHall = new THREE.Group();
+    mainHall.position.set(-6, 0.3, -2);
+
+    const mainBody = enableShadow(new THREE.Mesh(new THREE.BoxGeometry(19, 8.5, 14), materials.brickMain));
+    mainBody.position.y = 4.25;
+    mainHall.add(mainBody);
+
+    const plinth = enableShadow(new THREE.Mesh(new THREE.BoxGeometry(19.5, 1.4, 14.5), materials.darkConcrete));
+    plinth.position.y = 0.7;
+    mainHall.add(plinth);
+
+    for (let x = -8.5; x <= 8.5; x += 4.25) {
+        const pillar = enableShadow(new THREE.Mesh(new THREE.BoxGeometry(0.65, 8.7, 14.6), materials.brickDark));
+        pillar.position.set(x, 4.35, 0);
+        mainHall.add(pillar);
+    }
+
+    const sawCount = 4;
+    const sawWidth = 19 / sawCount;
+    for (let i = 0; i < sawCount; i++) {
+        const shape = new THREE.Shape();
+        shape.moveTo(0, 0);
+        shape.lineTo(sawWidth, 0);
+        shape.lineTo(0, 3.0);
+        shape.closePath();
+
+        const extrudeGeo = new THREE.ExtrudeGeometry(shape, { depth: 14, bevelEnabled: false });
+        const roofPrism = enableShadow(new THREE.Mesh(extrudeGeo, materials.roofMetal));
+        roofPrism.position.set(-9.5 + i * sawWidth, 8.5, -7);
+        mainHall.add(roofPrism);
+
+        const skylight = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.5, 13.2), materials.windowGlow);
+        skylight.position.set(-9.5 + i * sawWidth - 0.05, 9.85, 0);
+        mainHall.add(skylight);
+    }
+
+    for (let x = -6.35; x <= 6.35; x += 4.25) {
+        for (let row = 0; row < 2; row++) {
+            const winFront = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.8, 0.25), materials.windowGlow);
+            winFront.position.set(x, 3.2 + row * 2.8, 7.02);
+            mainHall.add(winFront);
+            const winBack = winFront.clone();
+            winBack.position.z = -7.02;
+            mainHall.add(winBack);
+        }
+    }
+
+    const boilerHouse = enableShadow(new THREE.Mesh(new THREE.BoxGeometry(10, 12.5, 12), materials.brickDark));
+    boilerHouse.position.set(13.5, 6.25, -1);
+    mainHall.add(boilerHouse);
+
+    const boilerRoof = enableShadow(new THREE.Mesh(new THREE.BoxGeometry(10.6, 0.7, 12.6), materials.roofMetal));
+    boilerRoof.position.set(13.5, 12.65, -1);
+    mainHall.add(boilerRoof);
+
+    for (let i = 0; i < 3; i++) {
+        const hvUnit = enableShadow(new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.4, 2.2), materials.steel));
+        hvUnit.position.set(11.2 + i * 2.5, 13.5, -1);
+        mainHall.add(hvUnit);
+    }
+    rootGroup.add(mainHall);
+
+    // 4. Cerobong & menara pendingin
+    const smokeEmitters = [];
+    const beacons = [];
+
+    function createSmokestack(x, z, height, radiusBottom, radiusTop) {
+        const stackGroup = new THREE.Group();
+        stackGroup.position.set(x, 0.3, z);
+
+        const ped = enableShadow(new THREE.Mesh(new THREE.BoxGeometry(radiusBottom * 2.5, 3, radiusBottom * 2.5), materials.darkConcrete));
+        ped.position.y = 1.5;
+        stackGroup.add(ped);
+
+        const mainCyl = enableShadow(new THREE.Mesh(new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 12), materials.concrete));
+        mainCyl.position.y = height / 2 + 2;
+        stackGroup.add(mainCyl);
+
+        for (let s = 0; s < 3; s++) {
+            const ratio = 0.68 + s * 0.1;
+            const r = radiusBottom * (1 - ratio) + radiusTop * ratio + 0.06;
+            const stripe = new THREE.Mesh(
+                new THREE.CylinderGeometry(r - 0.04, r, height * 0.075, 12),
+                s % 2 === 0 ? materials.stripeRed : materials.stripeWhite
+            );
+            stripe.position.y = 2 + height * ratio;
+            stackGroup.add(stripe);
+        }
+
+        const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(radiusTop * 1.15, radiusTop * 1.05, 1.2, 12), materials.darkSteel);
+        nozzle.position.y = height + 2;
+        stackGroup.add(nozzle);
+
+        const coreGlow = new THREE.Mesh(new THREE.CylinderGeometry(radiusTop * 0.85, radiusTop * 0.85, 0.4, 10), materials.furnaceGlow);
+        coreGlow.position.y = height + 2.45;
+        stackGroup.add(coreGlow);
+
+        const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 8), materials.beaconMat.clone());
+        beacon.position.set(radiusTop + 0.25, height + 2.4, 0);
+        stackGroup.add(beacon);
+        beacons.push(beacon);
+
+        rootGroup.add(stackGroup);
+
+        smokeEmitters.push({ x, y: height + 3.0, z, radius: radiusTop * 0.8, type: 'chimney' });
+    }
+
+    createSmokestack(6.5, -10.5, 25, 2.3, 1.35);
+    createSmokestack(12.0, -10.5, 21, 1.9, 1.15);
+
+    function createCoolingTower(x, z, scale = 1) {
+        const towerGroup = new THREE.Group();
+        towerGroup.position.set(x, 0.3, z);
+
+        const basin = enableShadow(new THREE.Mesh(new THREE.CylinderGeometry(5.6 * scale, 5.8 * scale, 1.2, 14), materials.darkConcrete));
+        basin.position.y = 0.6;
+        towerGroup.add(basin);
+
+        const lowerCone = enableShadow(new THREE.Mesh(new THREE.CylinderGeometry(3.7 * scale, 5.2 * scale, 7.5 * scale, 14, 1, false), materials.concrete));
+        lowerCone.position.y = 1.2 + (3.75 * scale);
+        towerGroup.add(lowerCone);
+
+        const upperCone = enableShadow(new THREE.Mesh(new THREE.CylinderGeometry(4.2 * scale, 3.7 * scale, 3.8 * scale, 14, 1, false), materials.concrete));
+        upperCone.position.y = 1.2 + (7.5 * scale) + (1.9 * scale);
+        towerGroup.add(upperCone);
+
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(4.15 * scale, 0.22 * scale, 6, 14), materials.darkConcrete);
+        rim.rotation.x = Math.PI / 2;
+        rim.position.y = 1.2 + (11.3 * scale);
+        towerGroup.add(rim);
+
+        const hole = new THREE.Mesh(new THREE.CircleGeometry(4.0 * scale, 14), materials.darkSteel);
+        hole.rotation.x = -Math.PI / 2;
+        hole.position.y = 1.15 + (11.3 * scale);
+        towerGroup.add(hole);
+
+        rootGroup.add(towerGroup);
+
+        smokeEmitters.push({ x, y: 1.5 + 11.3 * scale, z, radius: 2.6 * scale, type: 'cooling' });
+    }
+
+    createCoolingTower(-15.5, -10.0, 0.95);
+    createCoolingTower(-5.0, -11.5, 0.82);
+
+    // 5. Silo, pipa, pohon, truk
+    for (let i = 0; i < 3; i++) {
+        const siloGrp = new THREE.Group();
+        siloGrp.position.set(16.5, 0.3, -2.5 + i * 4.8);
+
+        const cyl = enableShadow(new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 9.0, 12), materials.steel));
+        cyl.position.y = 4.5;
+        siloGrp.add(cyl);
+
+        const dome = enableShadow(new THREE.Mesh(new THREE.SphereGeometry(2.0, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), materials.steel));
+        dome.position.y = 9.0;
+        siloGrp.add(dome);
+
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(2.03, 0.1, 6, 12), materials.darkSteel);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = 6.5;
+        siloGrp.add(ring);
+
+        rootGroup.add(siloGrp);
+    }
+
+    function createPipeSegment(p1, p2, radius = 0.32) {
+        const start = new THREE.Vector3(...p1);
+        const end = new THREE.Vector3(...p2);
+        const dir = new THREE.Vector3().subVectors(end, start);
+        const len = dir.length();
+
+        const pipeMesh = enableShadow(new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, len, 8), materials.pipeYellow));
+        pipeMesh.position.copy(start).add(end).multiplyScalar(0.5);
+        pipeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+        rootGroup.add(pipeMesh);
+
+        const joint = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.35, 8, 8), materials.darkSteel);
+        joint.position.copy(end);
+        rootGroup.add(joint);
+    }
+
+    createPipeSegment([11.5, 6.5, -2.5], [15.0, 6.5, -2.5]);
+    createPipeSegment([15.0, 6.5, -2.5], [15.0, 6.5, 7.1]);
+    createPipeSegment([7.5, 9.5, -7.0], [6.5, 9.5, -10.5]);
+    createPipeSegment([11.5, 8.5, -7.0], [12.0, 8.5, -10.5]);
+
+    function createTree(x, z, scale = 1) {
+        const tree = new THREE.Group();
+        tree.position.set(x, 0, z);
+
+        const trunk = enableShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.2 * scale, 0.35 * scale, 1.8 * scale, 6), materials.treeTrunk));
+        trunk.position.y = 0.9 * scale;
+        tree.add(trunk);
+
+        const crownMat = Math.random() > 0.45 ? materials.leafAutumn1 : materials.leafAutumn2;
+        const crown1 = enableShadow(new THREE.Mesh(new THREE.DodecahedronGeometry(1.25 * scale, 0), crownMat));
+        crown1.position.y = 2.3 * scale;
+        tree.add(crown1);
+
+        const crown2 = enableShadow(new THREE.Mesh(new THREE.DodecahedronGeometry(0.85 * scale, 0), crownMat));
+        crown2.position.set(0.5 * scale, 3.0 * scale, 0.3 * scale);
+        tree.add(crown2);
+
+        rootGroup.add(tree);
+    }
+
+    [[-24, -14, 1.2], [-27, -6, 1.0], [-25, 6, 1.3], [-23, 15, 0.9],
+     [25, -12, 1.1], [27, 2, 1.25], [24, 13, 1.0], [-18, -19, 1.1], [19, -18, 0.95]]
+        .forEach(([tx, tz, sc]) => createTree(tx, tz, sc));
+
+    function createCargoTruck(x, z, rotY = 0, cargoColor = 0x2563eb) {
+        const truck = new THREE.Group();
+        truck.position.set(x, 0.35, z);
+        truck.rotation.y = rotY;
+
+        const cab = enableShadow(new THREE.Mesh(new THREE.BoxGeometry(2.1, 2.0, 1.9), materials.stripeWhite));
+        cab.position.set(2.3, 1.2, 0);
+        truck.add(cab);
+
+        const trailerMat = new THREE.MeshStandardMaterial({ color: cargoColor, roughness: 0.6, flatShading: true });
+        const trailer = enableShadow(new THREE.Mesh(new THREE.BoxGeometry(5.0, 2.6, 2.1), trailerMat));
+        trailer.position.set(-1.3, 1.5, 0);
+        truck.add(trailer);
+
+        rootGroup.add(truck);
+    }
+
+    createCargoTruck(-7, 13.5, 0, 0xd97706);
+    createCargoTruck(9, 13.5, Math.PI, 0x2563eb);
+
+    // 6. Asap volumetrik
+    const smokeParticlesGroup = new THREE.Group();
+    smokeParticlesGroup.name = 'KepulanAsapPabrik';
+    rootGroup.add(smokeParticlesGroup);
+
+    const smokeGeoLowPoly = new THREE.DodecahedronGeometry(1.0, 1);
+    const activeParticles = [];
+
+    function spawnSmokePuff(emitter) {
+        const isCooling = emitter.type === 'cooling';
+        const baseColor = isCooling ? new THREE.Color(0xcbd5e1) : new THREE.Color(0x525b66);
+
+        const puffMat = new THREE.MeshStandardMaterial({
+            color: baseColor, roughness: 0.95, metalness: 0.05, flatShading: true,
+            transparent: true, opacity: isCooling ? 0.78 : 0.88
+        });
+
+        const mesh = new THREE.Mesh(smokeGeoLowPoly, puffMat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = false;
+
+        const initialScale = emitter.radius * (0.75 + Math.random() * 0.45);
+        mesh.scale.set(initialScale, initialScale * 0.85, initialScale);
+
+        const spreadAngle = Math.random() * Math.PI * 2;
+        const spreadDist = Math.random() * (emitter.radius * 0.45);
+
+        mesh.position.set(
+            emitter.x + Math.cos(spreadAngle) * spreadDist,
+            emitter.y + (Math.random() * 0.4),
+            emitter.z + Math.sin(spreadAngle) * spreadDist
+        );
+        mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+
+        smokeParticlesGroup.add(mesh);
+
+        activeParticles.push({
+            mesh,
+            emitterType: emitter.type,
+            age: 0,
+            maxLife: 6.5 + Math.random() * 3.5,
+            initialScale,
+            baseOpacity: isCooling ? 0.78 : 0.88,
+            velocity: new THREE.Vector3(
+                (Math.random() - 0.5) * 0.9,
+                (isCooling ? 3.2 : 4.6) + Math.random() * 1.4,
+                (Math.random() - 0.5) * 0.9
+            ),
+            rotSpeed: new THREE.Vector3(
+                (Math.random() - 0.5) * 1.1,
+                (Math.random() - 0.5) * 1.1,
+                (Math.random() - 0.5) * 1.1
+            ),
+            turbulenceSeed: Math.random() * 100
+        });
+    }
+
+    const config = { emissionRate: 0.85, windSpeed: 18 };
+    let spawnAccumulator = 0;
+
+    // Pre-warm
+    for (let w = 0; w < 50; w++) {
+        smokeEmitters.forEach(em => { if (Math.random() < 0.45) spawnSmokePuff(em); });
+        const stepDt = 0.14;
+        for (let i = activeParticles.length - 1; i >= 0; i--) {
+            const p = activeParticles[i];
+            p.age += stepDt;
+            const windFactor = config.windSpeed * 0.22;
+            p.mesh.position.x += (p.velocity.x + windFactor * (p.age * 0.42)) * stepDt;
+            p.mesh.position.y += p.velocity.y * stepDt;
+            p.mesh.position.z += (p.velocity.z - windFactor * 0.18) * stepDt;
+            const s = p.initialScale * (1 + (p.age / p.maxLife) * 2.9);
+            p.mesh.scale.set(s, s * 0.88, s);
+        }
+    }
+
+    // 7. Update
+    function update(dt = 0.016, elapsedTime = performance.now() * 0.001) {
+        const clampedDt = Math.min(dt, 0.1);
+
+        const beaconPulse = 1.5 + Math.sin(elapsedTime * 5.0) * 1.5;
+        beacons.forEach(b => { b.material.emissiveIntensity = beaconPulse; });
+
+        const spawnInterval = 0.13 / Math.max(0.2, config.emissionRate);
+        spawnAccumulator += clampedDt;
+        if (spawnAccumulator >= spawnInterval) {
+            spawnAccumulator = 0;
+            smokeEmitters.forEach(emitter => { if (Math.random() < 0.78) spawnSmokePuff(emitter); });
+        }
+
+        const windForce = config.windSpeed * 0.22;
+
+        for (let i = activeParticles.length - 1; i >= 0; i--) {
+            const p = activeParticles[i];
+            p.age += clampedDt;
+
+            if (p.age >= p.maxLife) {
+                smokeParticlesGroup.remove(p.mesh);
+                p.mesh.material.dispose();
+                activeParticles.splice(i, 1);
+                continue;
+            }
+
+            const lifeProgress = p.age / p.maxLife;
+            const altitudeFactor = Math.pow(lifeProgress, 0.75) * 2.2;
+            const turbX = Math.sin(elapsedTime * 1.6 + p.turbulenceSeed) * 0.65;
+            const turbZ = Math.cos(elapsedTime * 1.4 + p.turbulenceSeed) * 0.65;
+            const currentVelY = p.velocity.y * (1.0 - lifeProgress * 0.45);
+
+            p.mesh.position.x += (p.velocity.x + windForce * altitudeFactor + turbX) * clampedDt;
+            p.mesh.position.y += currentVelY * clampedDt;
+            p.mesh.position.z += (p.velocity.z - (windForce * 0.22 * altitudeFactor) + turbZ) * clampedDt;
+
+            p.mesh.rotation.x += p.rotSpeed.x * clampedDt;
+            p.mesh.rotation.y += p.rotSpeed.y * clampedDt;
+            p.mesh.rotation.z += p.rotSpeed.z * clampedDt;
+
+            const currentScale = p.initialScale * (1.0 + lifeProgress * 3.1);
+            p.mesh.scale.set(currentScale, currentScale * 0.86, currentScale);
+
+            let fadeFactor = 1.0;
+            if (lifeProgress < 0.12) fadeFactor = lifeProgress / 0.12;
+            else if (lifeProgress > 0.55) fadeFactor = 1.0 - ((lifeProgress - 0.55) / 0.45);
+
+            p.mesh.material.opacity = Math.max(0, p.baseOpacity * fadeFactor);
+
+            if (p.emitterType === 'chimney') {
+                p.mesh.material.color.setHSL(0.6, 0.08, 0.30 + lifeProgress * 0.35);
+            }
+        }
+    }
+
+    return { group: rootGroup, smokeGroup: smokeParticlesGroup, config, update };
+}
+
+// ===== Scene =====
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+const skyCol = dark ? 0x1a2230 : 0xb9c7d4;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(skyCol);
+scene.fog = new THREE.Fog(skyCol, 90, 220);
+
+const cam = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 500);
+const ren = new THREE.WebGLRenderer({ antialias: true });
+ren.setPixelRatio(Math.min(devicePixelRatio, 2));
+ren.setSize(innerWidth, innerHeight);
+ren.shadowMap.enabled = true;
+document.body.prepend(ren.domElement);
+
+scene.add(new THREE.HemisphereLight(0xdde8f5, 0x3a3a35, 0.75));
+const sun = new THREE.DirectionalLight(0xfff0d8, 1.0);
+sun.position.set(30, 55, 25);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -50, right: 50, top: 50, bottom: -50, near: 1, far: 160 });
+scene.add(sun);
+
+const pabrik = createModelPabrik(scene);
+
+document.getElementById('er').oninput = e => { pabrik.config.emissionRate = +e.target.value; document.getElementById('e').textContent = e.target.value; };
+document.getElementById('wr').oninput = e => { pabrik.config.windSpeed = +e.target.value; document.getElementById('w').textContent = e.target.value; };
+
+let th = 0.7, ph = 1.15, dist = 75, drag = false, px = 0, py = 0, auto = true;
+const cv = ren.domElement;
+cv.addEventListener('pointerdown', e => { drag = true; auto = false; px = e.clientX; py = e.clientY; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointerup', () => drag = false);
+cv.addEventListener('pointermove', e => {
+  if (!drag) return;
+  th -= (e.clientX - px) * 0.006;
+  ph = Math.min(1.5, Math.max(0.3, ph - (e.clientY - py) * 0.005));
+  px = e.clientX; py = e.clientY;
+});
+cv.addEventListener('wheel', e => { e.preventDefault(); dist = Math.min(150, Math.max(25, dist + e.deltaY * 0.06)); }, { passive: false });
+addEventListener('resize', () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); ren.setSize(innerWidth, innerHeight); });
+
+let last = performance.now();
+(function loop(now) {
+  const dt = (now - last) / 1000; last = now;
+  if (auto) th += 0.0025;
+  pabrik.update(dt, now * 0.001);
+  cam.position.set(Math.sin(th) * Math.sin(ph) * dist, Math.cos(ph) * dist, Math.cos(th) * Math.sin(ph) * dist);
+  cam.lookAt(0, 10, 0);
+  ren.render(scene, cam);
+  requestAnimationFrame(loop);
+})(last);
+</script>
+</body>
+</html>

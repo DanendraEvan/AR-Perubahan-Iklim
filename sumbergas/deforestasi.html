@@ -1,0 +1,545 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulasi Deforestasi & Pelepasan Gas CO₂ - Three.js</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #ffffff;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        /* UI Panel Informasi Deforestasi */
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 350px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+        }
+        #info-panel h2 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: #ef4444;
+        }
+        #info-panel p.subtitle {
+            margin: 0 0 14px 0;
+            font-size: 12.5px;
+            color: #94a3b8;
+            line-height: 1.4;
+        }
+        .gas-card {
+            background: rgba(30, 41, 59, 0.75);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-left: 4px solid #ef4444;
+        }
+        .gas-header {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+        .dot-red {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            display: inline-block;
+            background-color: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+        }
+        .gas-desc {
+            font-size: 12px;
+            color: #cbd5e1;
+            line-height: 1.45;
+            margin: 0;
+        }
+        .stats-box {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 12.5px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .stats-box span.val {
+            font-weight: bold;
+            color: #f87171;
+        }
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+        button {
+            flex: 1;
+            padding: 9px 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12.5px;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        .btn-cut {
+            background-color: #ef4444;
+            color: white;
+        }
+        .btn-reset {
+            background-color: #10b981;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="info-panel">
+        <h2>Simulasi Deforestasi & Emisi CO₂</h2>
+        <p class="subtitle">Klik langsung pada pohon atau gunakan tombol di bawah untuk menebang pohon dan mengamati pelepasan molekul karbon ke atmosfer.</p>
+
+        <div class="gas-card">
+            <div class="gas-header">
+                <span class="dot-red"></span>
+                🔴 Karbon Dioksida (CO₂)
+            </div>
+            <p class="gas-desc">
+                <strong>Struktur Molekul:</strong> 1 Atom Karbon (C) mengikat 2 Atom Oksigen (O=C=O).<br><br>
+                <strong>Proses Pelepasan:</strong> Pohon menyerap dan menyimpan karbon (<em>carbon sink</em>) di dalam biomassa batang, daun, dan akar. Saat pohon ditebang, dibakar, atau membusuk akibat deforestasi, cadangan karbon tersebut bereaksi dengan oksigen di udara dan terlepas kembali menjadi gas rumah kaca <strong>CO₂</strong>.
+            </p>
+        </div>
+
+        <div class="stats-box">
+            <div>Pohon Tersisa: <span id="tree-count" class="val" style="color:#4ade80;">0</span></div>
+            <div>Pohon Ditebang: <span id="cut-count" class="val">0</span></div>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-cut" id="btnCutRandom">🪓 Tebang Pohon</button>
+            <button class="btn-reset" id="btnReplant">🌱 Reboisasi (Reset)</button>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <!-- Import Three.js & OrbitControls via CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ============================================================================
+        // PENJELASAN GAS DEFORESTASI DI DALAM KODE
+        // ============================================================================
+        /*
+         * GAS YANG DIHASILKAN DARI DEFORESTASI:
+         * 1. 🔴 Karbon Dioksida (CO₂):
+         *    - Hutan berfungsi sebagai penyimpan karbon alami (Carbon Sink) melalui fotosintesis.
+         *    - Ketika terjadi deforestasi (penebangan & pembukaan lahan), karbon yang tersimpan
+         *      di dalam kayu dan tanah teroksidasi dan lepas ke atmosfer sebagai molekul CO₂ (O=C=O).
+         *    - Selain pelepasan langsung, hilangnya pohon juga menghentikan penyerapan CO₂ di masa depan,
+         *      sehingga konsentrasi gas rumah kaca meningkat drastis.
+         */
+        const INFO_GAS_DEFORESTASI = {
+            kode: "CO2",
+            nama: "🔴 Karbon Dioksida (CO₂)",
+            warnaOksigen: 0xef4444, // Merah terang untuk 2 atom Oksigen di ujung
+            warnaKarbon: 0x7f1d1d,  // Merah gelap/kehitaman untuk 1 atom Karbon di pusat
+            struktur: "Linear (O = C = O)"
+        };
+
+        // ============================================================================
+        // INISIALISASI SCENE, KAMERA, DAN RENDERER
+        // ============================================================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f172a);
+        scene.fog = new THREE.FogExp2(0x0f172a, 0.022);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 12, 18);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.maxPolarAngle = Math.PI / 2 - 0.05; // Mencegah kamera tembus ke bawah tanah
+        controls.target.set(0, 1, 0);
+
+        // ============================================================================
+        // PENCAHAYAAN (LIGHTING)
+        // ============================================================================
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.3);
+        sunLight.position.set(12, 20, 10);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        scene.add(sunLight);
+
+        // ============================================================================
+        // DARATAN / TANAH HUTAN
+        // ============================================================================
+        const groundGeo = new THREE.BoxGeometry(22, 1.2, 22);
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x15803d, // Hijau hutan saat masih rimbun
+            roughness: 0.9
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.position.y = -0.6;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // ============================================================================
+        // PEMBUATAN POHON & TUNGGUL KAYU (STUMP)
+        // ============================================================================
+        const trees = [];
+        let cutTreeCount = 0;
+
+        const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+        const stumpInsideMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8 });
+        const leafMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.6 });
+
+        function createTree(x, z) {
+            const treeContainer = new THREE.Group();
+            treeContainer.position.set(x, 0, z);
+
+            // 1. Tunggul bawah (Stump) - tetap tinggal saat pohon tumbang
+            const stumpGroup = new THREE.Group();
+            const stumpGeo = new THREE.CylinderGeometry(0.28, 0.35, 0.45, 12);
+            const stumpMesh = new THREE.Mesh(stumpGeo, trunkMat);
+            stumpMesh.position.y = 0.225;
+            stumpMesh.castShadow = true;
+            stumpMesh.receiveShadow = true;
+
+            const ringGeo = new THREE.CircleGeometry(0.27, 12);
+            const ringMesh = new THREE.Mesh(ringGeo, stumpInsideMat);
+            ringMesh.rotation.x = -Math.PI / 2;
+            ringMesh.position.y = 0.451;
+
+            stumpGroup.add(stumpMesh, ringMesh);
+            treeContainer.add(stumpGroup);
+
+            // 2. Bagian Atas Pohon (Batang + Daun yang bisa ditebang/tumbang)
+            const upperTreeGroup = new THREE.Group();
+            upperTreeGroup.position.y = 0.45; // Berada tepat di atas tunggul
+
+            // Batang utama
+            const trunkGeo = new THREE.CylinderGeometry(0.18, 0.27, 1.6, 12);
+            const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
+            trunkMesh.position.y = 0.8;
+            trunkMesh.castShadow = true;
+            upperTreeGroup.add(trunkMesh);
+
+            // Daun bertingkat (3 susun kerucut)
+            const cone1 = new THREE.Mesh(new THREE.ConeGeometry(1.15, 1.5, 10), leafMat);
+            cone1.position.y = 1.6;
+            cone1.castShadow = true;
+
+            const cone2 = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.3, 10), leafMat);
+            cone2.position.y = 2.35;
+            cone2.castShadow = true;
+
+            const cone3 = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.0, 10), leafMat);
+            cone3.position.y = 3.0;
+            cone3.castShadow = true;
+
+            upperTreeGroup.add(cone1, cone2, cone3);
+            treeContainer.add(upperTreeGroup);
+
+            // Variasi skala acak agar hutan tampak alami
+            const scale = 0.85 + Math.random() * 0.35;
+            treeContainer.scale.set(scale, scale, scale);
+
+            treeContainer.userData = {
+                isCut: false,
+                upperPart: upperTreeGroup,
+                fallProgress: 0,
+                fallDirection: Math.random() * Math.PI * 2,
+                co2SpawnTimer: 0
+            };
+
+            scene.add(treeContainer);
+            trees.push(treeContainer);
+        }
+
+        // Susun pohon-pohon di atas daratan hutan
+        function populateForest() {
+            // Bersihkan pohon lama jika ada
+            trees.forEach(t => scene.remove(t));
+            trees.length = 0;
+            cutTreeCount = 0;
+
+            const positions = [
+                [-6, -6], [-2, -7], [3, -6], [7, -5],
+                [-7, -2], [-3, -3], [1, -2], [5, -2],
+                [-5, 2],  [-1, 1],  [4, 2],  [8, 1],
+                [-6, 6],  [-2, 5],  [2, 6],  [6, 6],
+                [-8, 3],  [0, -5],  [-4, 7], [7, -1]
+            ];
+
+            positions.forEach(pos => {
+                const offsetX = pos[0] + (Math.random() - 0.5) * 1.2;
+                const offsetZ = pos[1] + (Math.random() - 0.5) * 1.2;
+                createTree(offsetX, offsetZ);
+            });
+
+            updateForestStats();
+        }
+
+        // ============================================================================
+        // PEMBUATAN MODEL MOLEKUL GAS 🔴 KARBON DIOKSIDA (CO₂)
+        // ============================================================================
+        const carbonGeo = new THREE.SphereGeometry(0.16, 16, 16);
+        const oxygenGeo = new THREE.SphereGeometry(0.12, 16, 16);
+        const bondGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.38, 8);
+
+        const carbonMat = new THREE.MeshStandardMaterial({
+            color: INFO_GAS_DEFORESTASI.warnaKarbon,
+            roughness: 0.3
+        });
+        const oxygenMat = new THREE.MeshStandardMaterial({
+            color: INFO_GAS_DEFORESTASI.warnaOksigen,
+            emissive: INFO_GAS_DEFORESTASI.warnaOksigen,
+            emissiveIntensity: 0.45,
+            roughness: 0.2
+        });
+
+        const co2Particles = [];
+
+        function spawnCO2Molecule(x, y, z, burst = false) {
+            const co2Group = new THREE.Group();
+
+            // 1 Atom Karbon di tengah (C)
+            const atomC = new THREE.Mesh(carbonGeo, carbonMat);
+
+            // 2 Atom Oksigen di sisi kiri & kanan (O=C=O)
+            const atomO1 = new THREE.Mesh(oxygenGeo, oxygenMat);
+            atomO1.position.set(0.24, 0, 0);
+
+            const atomO2 = new THREE.Mesh(oxygenGeo, oxygenMat);
+            atomO2.position.set(-0.24, 0, 0);
+
+            // Ikatan rangkap kimia
+            const bond = new THREE.Mesh(bondGeo, oxygenMat);
+            bond.rotation.z = Math.PI / 2;
+
+            co2Group.add(atomC, atomO1, atomO2, bond);
+
+            // Posisi awal muncul dari tunggul/batang pohon yang ditebang
+            co2Group.position.set(
+                x + (Math.random() - 0.5) * 0.8,
+                y + Math.random() * 0.5,
+                z + (Math.random() - 0.5) * 0.8
+            );
+
+            // Kecepatan melayang ke atmosfer
+            const spread = burst ? 0.06 : 0.02;
+            co2Group.userData = {
+                vx: (Math.random() - 0.5) * spread,
+                vy: 0.02 + Math.random() * 0.025, // Melayang ke atas (atmosfer)
+                vz: (Math.random() - 0.5) * spread,
+                rotX: (Math.random() - 0.5) * 0.07,
+                rotY: (Math.random() - 0.5) * 0.07,
+                age: 0,
+                maxAge: 180 + Math.random() * 80
+            };
+
+            scene.add(co2Group);
+            co2Particles.push(co2Group);
+        }
+
+        // ============================================================================
+        // LOGIKA DEFORESTASI (PENEBANGAN POHON & PERUBAHAN TANAH)
+        // ============================================================================
+        function cutDownTree(tree) {
+            if (!tree || tree.userData.isCut) return;
+
+            tree.userData.isCut = true;
+            cutTreeCount++;
+
+            // Ledakan awal molekul CO2 saat pohon ditebang dan kayu hancur
+            for (let i = 0; i < 14; i++) {
+                spawnCO2Molecule(tree.position.x, 0.8, tree.position.z, true);
+            }
+
+            updateForestStats();
+        }
+
+        function updateForestStats() {
+            const total = trees.length;
+            const remaining = total - cutTreeCount;
+
+            document.getElementById('tree-count').textContent = remaining;
+            document.getElementById('cut-count').textContent = cutTreeCount;
+
+            // Tanah berangsur berubah dari hijau subur menjadi coklat gersang seiring deforestasi
+            const deforestationRatio = total > 0 ? cutTreeCount / total : 0;
+            const healthyColor = new THREE.Color(0x15803d); // Hijau
+            const barrenColor = new THREE.Color(0x5c4033);  // Coklat tanah gersang
+            ground.material.color.lerpColors(healthyColor, barrenColor, deforestationRatio);
+        }
+
+        // ============================================================================
+        // INTERAKSI KLIK MOUSE & TOMBOL UI
+        // ============================================================================
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener('pointerdown', (event) => {
+            // Abaikan jika klik berada di atas panel UI
+            if (event.target.closest('#info-panel')) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(trees, true);
+
+            if (intersects.length > 0) {
+                let obj = intersects[0].object;
+                while (obj.parent && !trees.includes(obj)) {
+                    obj = obj.parent;
+                }
+                if (trees.includes(obj)) {
+                    cutDownTree(obj);
+                }
+            }
+        });
+
+        // Tombol Tebang Pohon Acak
+        document.getElementById('btnCutRandom').addEventListener('click', () => {
+            const standingTrees = trees.filter(t => !t.userData.isCut);
+            if (standingTrees.length > 0) {
+                const randomTree = standingTrees[Math.floor(Math.random() * standingTrees.length)];
+                cutDownTree(randomTree);
+            }
+        });
+
+        // Tombol Reboisasi (Reset Hutan)
+        document.getElementById('btnReplant').addEventListener('click', () => {
+            // Hapus partikel CO2 di udara
+            co2Particles.forEach(p => scene.remove(p));
+            co2Particles.length = 0;
+            populateForest();
+        });
+
+        // Inisialisasi awal hutan
+        populateForest();
+
+        // Penebangan otomatis beberapa pohon di awal agar langsung terlihat emisinya
+        setTimeout(() => {
+            if (trees[5]) cutDownTree(trees[5]);
+            if (trees[10]) cutDownTree(trees[10]);
+        }, 600);
+
+        // ============================================================================
+        // LOOP ANIMASI UTAMA
+        // ============================================================================
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 1. Proses animasi pohon tumbang & pelepasan gas CO2 berkelanjutan dari tunggul
+            trees.forEach(tree => {
+                const data = tree.userData;
+                if (data.isCut) {
+                    // Animasi batang pohon roboh ke tanah
+                    if (data.fallProgress < 1) {
+                        data.fallProgress += 0.04;
+                        const angle = Math.min(data.fallProgress, 1) * (Math.PI / 2);
+                        data.upperPart.rotation.x = Math.cos(data.fallDirection) * angle;
+                        data.upperPart.rotation.z = Math.sin(data.fallDirection) * angle;
+
+                        // Setelah tumbang penuh, sembunyikan batang atas (menyisakan tunggul kayu)
+                        if (data.fallProgress >= 1) {
+                            data.upperPart.visible = false;
+                        }
+                    }
+
+                    // Tunggul pohon & tanah yang terbuka terus melepaskan atom CO2 ke udara
+                    data.co2SpawnTimer++;
+                    if (data.co2SpawnTimer > 28) {
+                        spawnCO2Molecule(tree.position.x, 0.5, tree.position.z, false);
+                        data.co2SpawnTimer = 0;
+                    }
+                }
+            });
+
+            // 2. Update pergerakan molekul atom CO2 (🔴 Karbon Dioksida) ke atmosfer
+            for (let i = co2Particles.length - 1; i >= 0; i--) {
+                const p = co2Particles[i];
+                const d = p.userData;
+
+                p.position.x += d.vx;
+                p.position.y += d.vy;
+                p.position.z += d.vz;
+
+                p.rotation.x += d.rotX;
+                p.rotation.y += d.rotY;
+
+                d.age++;
+                const lifeRatio = d.age / d.maxAge;
+
+                // Efek skala mengecil saat mencapai atmosfer tinggi
+                if (lifeRatio > 0.75) {
+                    const s = Math.max(0.01, (1 - lifeRatio) * 4);
+                    p.scale.set(s, s, s);
+                }
+
+                if (d.age >= d.maxAge) {
+                    scene.remove(p);
+                    co2Particles.splice(i, 1);
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
+

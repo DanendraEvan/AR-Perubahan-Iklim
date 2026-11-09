@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+  <title>AR Diorama Scanner</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- 1. Muat A-Frame + MindAR terlebih dahulu -->
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <script src="https://raw.githack.com/donmccurdy/aframe-extras/master/dist/aframe-extras.loaders.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-detector.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-handler.js"></script>
+
+  <!-- 2. Polyfill & Penyatu Instance THREE agar ES Module (banjir/kekeringan) memakai THREE milik A-Frame -->
+  <script>
+    (function () {
+      const T = window.AFRAME && window.AFRAME.THREE;
+      if (!T) return;
+
+      // Polyfill kompatibilitas Three.js r160 di atas Three.js r147 milik A-Frame
+      if (!('SRGBColorSpace' in T)) T.SRGBColorSpace = 'srgb';
+      if (!('LinearSRGBColorSpace' in T)) T.LinearSRGBColorSpace = 'srgb-linear';
+      if (T.Texture && !('colorSpace' in T.Texture.prototype)) {
+        Object.defineProperty(T.Texture.prototype, 'colorSpace', {
+          get: function () { return this.encoding === T.sRGBEncoding ? 'srgb' : ''; },
+          set: function (v) { if (v === 'srgb') this.encoding = T.sRGBEncoding; }
+        });
+      }
+      if (T.WebGLRenderer && !('outputColorSpace' in T.WebGLRenderer.prototype)) {
+        Object.defineProperty(T.WebGLRenderer.prototype, 'outputColorSpace', {
+          get: function () { return 'srgb'; },
+          set: function () { this.outputEncoding = T.sRGBEncoding; }
+        });
+      }
+
+      // Tangkap semua WebGLRenderer & Scene dari model standalone (baik yang pakai setAnimationLoop maupun requestAnimationFrame)
+      window.__CAPTURED_SCENES = [];
+      window.__CAPTURED_LOOPS = [];
+      window.__REGISTERED_COMPS = {};
+
+      const origRegister = AFRAME.registerComponent.bind(AFRAME);
+      AFRAME.registerComponent = function (name, def) {
+        window.__REGISTERED_COMPS[name] = def;
+        return origRegister(name, def);
+      };
+
+      const origSetLoop = T.WebGLRenderer.prototype.setAnimationLoop;
+      T.WebGLRenderer.prototype.setAnimationLoop = function (fn) {
+        if (this.domElement && (this.domElement.classList.contains('a-canvas') || this.domElement.closest('a-scene'))) {
+          return origSetLoop.call(this, fn);
+        }
+        this.__isStandaloneModel = true;
+        if (fn && !window.__CAPTURED_LOOPS.includes(fn)) {
+          window.__CAPTURED_LOOPS.push(fn);
+        }
+      };
+
+      const origRender = T.WebGLRenderer.prototype.render;
+      T.WebGLRenderer.prototype.render = function (scene, camera) {
+        const isAframe = this.domElement && (this.domElement.classList.contains('a-canvas') || this.domElement.closest('a-scene'));
+        if (!isAframe && scene) {
+          if (!window.__CAPTURED_SCENES.includes(scene)) {
+            window.__CAPTURED_SCENES.push(scene);
+          }
+          // Jangan render ke canvas tersembunyi agar hemat performa GPU
+          return;
+        }
+        return origRender.call(this, scene, camera);
+      };
+
+      // Buat Blob URL module untuk 'three' yang mengekspor semua isi AFRAME.THREE
+      const keys = Object.keys(T).filter(function (k) { return /^[a-zA-Z_$][0-9a-zA-Z_$]*$/.test(k) && k !== 'default'; });
+      let modCode = 'const T = window.AFRAME.THREE;\nexport default T;\n';
+      keys.forEach(function (k) { modCode += 'export const ' + k + ' = T.' + k + ';\n'; });
+      const threeBlobUrl = URL.createObjectURL(new Blob([modCode], { type: 'text/javascript' }));
+
+      // Pasang importmap secara dinamis sebelum module apapun berjalan
+      const im = document.createElement('script');
+      im.type = 'importmap';
+      im.textContent = JSON.stringify({
+        imports: {
+          "three": threeBlobUrl,
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.147.0/examples/jsm/"
+        }
+      });
+      document.currentScript.after(im);
+    })();
+  </script>
+
+  <style>
+    .a-modal { display: none !important; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #000; font-family: system-ui, -apple-system, sans-serif; user-select: none; }
+
+    /* Wadah Kamera & Scene MindAR */
+    #ar-wrap { position: fixed; left: 0; top: 0; width: 100%; height: 100vh; height: calc(var(--vh, 1vh) * 100); height: 100dvh; overflow: hidden; background: #000; z-index: 1; }
+    #ar-wrap a-scene { position: absolute !important; left: 0; top: 0; width: 100% !important; height: 100% !important; }
+    #ar-wrap video { max-width: none; }
+
+    /* Wadah tersembunyi untuk kompatibilitas DOM script standalone */
+    #app, #c {
+      position: fixed !important; left: -9999px !important; top: -9999px !important;
+      width: 300px !important; height: 300px !important; opacity: 0 !important; pointer-events: none !important;
+    }
+
+    /* Layar Loading */
+    .loading {
+      position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 0 24px; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 500; letter-spacing: 2px;
+      color: #fff; text-shadow: 0 0 20px rgba(77, 184, 255, .5);
+      background: radial-gradient(ellipse 110% 45% at 50% 112%, rgba(40, 130, 255, .5), transparent 72%), linear-gradient(180deg, #000 0%, #02050d 55%, #061226 100%);
+    }
+    .loading::after {
+      content: ''; display: block; width: 40px; height: 40px; margin: 24px auto 0;
+      border: 3px solid rgba(77, 184, 255, .22); border-top: 3px solid #ffb347; border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.03); } }
+
+    /* Indikator Deteksi Marker */
+    #gui-container {
+      position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
+      z-index: 25; text-align: center; width: 65%; max-width: 320px; pointer-events: none;
+    }
+    .object-tag {
+      background: rgba(0, 0, 0, .78); color: #33ccff; border: 1.5px solid #33ccff; padding: 7px 14px; border-radius: 8px;
+      font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: bold; letter-spacing: 1px;
+      box-shadow: 0 0 15px rgba(51, 204, 255, .45); display: none; animation: pulse 1.5s infinite alternate;
+    }
+
+    /* Panel Kontrol Diorama */
+    #panel {
+      position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: calc(12px + env(safe-area-inset-left, 0px));
+      z-index: 20; width: 250px; max-height: calc(100dvh - 24px);
+      overflow-y: auto; box-sizing: border-box; padding: 12px; color: #fff; font-size: 13px;
+      background: rgba(0, 0, 0, .72); border: 1px solid rgba(51, 204, 255, .4); border-radius: 10px;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      box-shadow: 0 0 20px rgba(0, 0, 0, .5); transition: transform .25s ease, opacity .25s ease;
+    }
+    #panel.collapsed { transform: translateX(calc(-100% - 24px)); opacity: 0; pointer-events: none; }
+    #panel h1 { margin: 0 0 8px; font-size: 14px; letter-spacing: .5px; color: #33ccff; }
+    #panel h2 { margin: 12px 0 6px; font-size: 11px; opacity: .75; letter-spacing: 1px; font-weight: 600; }
+    #panel select {
+      width: 100%; padding: 8px; font: inherit; color: #fff; background: #1a2430;
+      border: 1px solid rgba(51, 204, 255, .45); border-radius: 6px; outline: none;
+    }
+    #panel button {
+      padding: 8px 6px; font: inherit; color: #fff; cursor: pointer;
+      background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .3); border-radius: 6px;
+    }
+    #panel button:hover { background: rgba(51, 204, 255, .25); }
+    #panel button.on, #panel button.active { background: #2f8cff; border-color: #33ccff; }
+    #panel button:disabled { opacity: .4; cursor: not-allowed; }
+    #panel label { display: flex; align-items: center; gap: 6px; margin: 10px 0; cursor: pointer; }
+    #panel ul { margin: 0; padding-left: 16px; line-height: 1.6; font-size: 12px; opacity: .9; }
+    #panel li.warn { color: #ffb74d; }
+    #panel li.pending { opacity: .5; }
+    #panel li span:first-child { margin-right: 8px; }
+    #panel .stages, #stageButtons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    #panel .exports { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    #panel .wide { width: 100%; margin-top: 6px; }
+    #total { margin-top: 6px; font-weight: 600; }
+    #errors, #muatError { margin-top: 8px; color: #ff8a80; white-space: pre-wrap; font-size: 12px; }
+    .hint { margin-top: 10px; font-size: 11px; opacity: .65; line-height: 1.4; }
+    #gStageButtons, #tabs { display: grid; grid-template-columns: 1fr; gap: 6px; }
+    #gStageButtons button, #tabs button { text-align: left; }
+    #msg { margin-top: 8px; font-size: 12px; opacity: .85; line-height: 1.4; }
+    .lbl { display: none !important; }
+    [hidden] { display: none !important; }
+
+    #gInfo {
+      position: fixed; left: calc(12px + env(safe-area-inset-left, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      z-index: 20; max-width: min(400px, calc(100vw - 90px));
+      padding: 12px 14px; color: #fff; font-size: 13px; line-height: 1.55; background: rgba(0, 0, 0, .78);
+      border: 1px solid rgba(51, 204, 255, .4); border-radius: 8px; pointer-events: none;
+    }
+    #gInfo b { display: block; margin-bottom: 4px; font-size: 14px; color: #33ccff; }
+
+    /* Tombol Melayang */
+    .ui-btn {
+      position: fixed; z-index: 25; width: 46px; height: 46px; padding: 0; border-radius: 50%;
+      background: rgba(0, 0, 0, .65); border: 2px solid #33ccff; color: #33ccff;
+      display: grid; place-items: center; cursor: pointer; box-shadow: 0 0 15px rgba(51, 204, 255, .45);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); touch-action: manipulation;
+      font-family: 'IBM Plex Mono', monospace; transition: background .2s, transform .15s;
+    }
+    .ui-btn:hover { background: rgba(51, 204, 255, .2); }
+    .ui-btn:active { transform: scale(.92); }
+    .ui-btn svg { width: 22px; height: 22px; display: block; }
+    #btn-toggle-panel { top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(68px + env(safe-area-inset-right, 0px)); }
+    #btn-info { top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); font-size: 22px; font-weight: bold; }
+    #btn-next { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); }
+
+    #overlay { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, .55); opacity: 0; pointer-events: none; transition: opacity .25s; }
+    #overlay.show { opacity: 1; pointer-events: auto; }
+    #info-modal {
+      position: fixed; top: 50%; left: 50%; z-index: 31; width: min(88vw, 380px); max-height: 80vh; overflow-y: auto;
+      transform: translate(-50%, -50%) scale(.92); opacity: 0; pointer-events: none;
+      background: rgba(0, 0, 0, .92); border: 2px solid #33ccff; border-radius: 12px;
+      box-shadow: 0 0 25px rgba(51, 204, 255, .5); padding: 22px; color: #fff; box-sizing: border-box; transition: opacity .25s, transform .25s;
+    }
+    #info-modal.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+    #info-modal h2 { margin: 0 0 12px; color: #33ccff; font-size: 16px; letter-spacing: 1.5px; }
+    #info-modal ol { margin: 0; padding-left: 20px; line-height: 1.7; font-size: 13px; }
+    #info-modal li { margin-bottom: 6px; }
+    #info-modal .close-btn {
+      margin-top: 16px; width: 100%; padding: 10px; background: none; border: 1px solid #33ccff;
+      border-radius: 6px; color: #33ccff; font: inherit; font-weight: bold; cursor: pointer;
+    }
+
+    #status {
+      position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 25;
+      padding: 8px 14px; color: #fff; font-size: 13px; background: rgba(0, 0, 0, .75);
+      border-radius: 6px; opacity: 0; pointer-events: none; transition: opacity .25s;
+    }
+    #status.show { opacity: 1; }
+
+    @media (max-width: 600px) { #panel { width: 215px; font-size: 12px; } }
+  </style>
+</head>
+<body>
+
+  <div class="loading" id="loading">MEMUAT KAMERA AR &amp; MODEL...</div>
+  <div id="gui-container"><div class="object-tag" id="object-tag"></div></div>
+
+  <button class="ui-btn" id="btn-toggle-panel" type="button" title="Sembunyikan/Tampilkan Panel" aria-label="Toggle Panel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <button class="ui-btn" id="btn-info" type="button" title="Panduan AR" aria-label="Informasi">i</button>
+  <button class="ui-btn" id="btn-next" type="button" title="Putar model 45°" aria-label="Putar model ke kanan">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+  </button>
+
+  <div id="overlay"></div>
+  <div id="info-modal" role="dialog" aria-modal="true" aria-labelledby="info-title" aria-hidden="true">
+    <h2 id="info-title">PANDUAN AR DIORAMA</h2>
+    <ol>
+      <li>Izinkan browser mengakses kamera perangkat Anda.</li>
+      <li>Arahkan kamera ke gambar target/marker hingga model diorama 3D muncul.</li>
+      <li>Pilih model bencana/iklim dan tahapan prosesnya pada panel di sebelah kiri.</li>
+      <li>Geser satu jari di layar untuk memutar diorama, atau cubit dua jari untuk memperbesar/memperkecil.</li>
+    </ol>
+    <button class="close-btn" id="info-close" type="button">TUTUP</button>
+  </div>
+
+  <div id="app"></div>
+  <canvas id="c" hidden></canvas>
+  <div id="status"></div>
+
+  <div id="panel">
+    <h1>AR DIORAMA</h1>
+    <select id="pilihModel" aria-label="Pilih model"></select>
+    <div id="muatError"></div>
+
+    <!-- UI untuk model bertipe "banjir" -->
+    <template id="ui-banjir"><div>
+      <h2>TAHAP</h2>
+      <div class="stages">
+        <button id="b1" type="button">1</button>
+        <button id="b2" type="button">2</button>
+        <button id="b3" type="button">3</button>
+        <button id="b4" type="button">4</button>
+      </div>
+      <label><input type="checkbox" id="all" /> Tampilkan semua tahap</label>
+      <h2>SEGITIGA</h2>
+      <ul id="list"></ul>
+      <div id="total"></div>
+      <h2>EKSPOR GLB</h2>
+      <div class="exports">
+        <button id="e1" type="button">1</button>
+        <button id="e2" type="button">2</button>
+        <button id="e3" type="button">3</button>
+        <button id="e4" type="button">4</button>
+      </div>
+      <button id="exEach" class="wide" type="button">Ekspor semua (4 file)</button>
+      <div id="errors"></div>
+    </div></template>
+
+    <!-- UI untuk model bertipe "ice" -->
+    <template id="ui-ice"><div>
+      <h2>TAHAP</h2>
+      <div id="stageButtons"></div>
+      <label><input type="checkbox" id="showAll" /> Tampilkan semua tahap</label>
+      <h2>SEGITIGA</h2>
+      <ul id="stats"></ul>
+      <h2>EKSPOR GLB</h2>
+      <button id="btnExportAll" class="wide" type="button">Ekspor semua tahap (1 file)</button>
+      <button id="btnExportEach" class="wide" type="button">Ekspor per tahap</button>
+    </div></template>
+
+    <!-- UI untuk model bertipe "aframe" (kebakaran.js) -->
+    <template id="ui-generik"><div>
+      <h2>TAHAP</h2>
+      <div id="gStageButtons"></div>
+    </div></template>
+
+    <!-- UI untuk model bertipe "kk1" (kekeringan.js) -->
+    <template id="ui-kk1"><div>
+      <h2>TAHAP</h2>
+      <div id="tabs"></div>
+      <label><input type="checkbox" id="all" /> Tampilkan semua tahap</label>
+      <div id="msg"></div>
+      <h2>SEGITIGA</h2>
+      <ul id="stats"></ul>
+      <h2>EKSPOR GLB</h2>
+      <button id="exportAll" class="wide" type="button">Ekspor semua tahap (1 file)</button>
+      <button id="exportEach" class="wide" type="button">Ekspor per tahap</button>
+    </div></template>
+
+    <div class="hint">Tombol 1–4 untuk ganti tahap. Geser layar untuk memutar, cubit 2 jari untuk zoom.</div>
+  </div>
+  <div id="gInfo" hidden></div>
+
+  <!-- ====================== SCENE MINDAR ====================== -->
+  <div id="ar-wrap">
+    <a-scene
+      mindar-image="imageTargetSrc: ./asset/ice.mind; filterMinCF: 0.0001; filterBeta: 100; missTolerance: 30; warmupTolerance: 5; uiLoading: no; uiScanning: no; uiError: no;"
+      device-orientation-permission-ui="enabled: false"
+      vr-mode-ui="enabled: false;"
+      loading-screen="enabled: false;"
+      renderer="logarithmicDepthBuffer: true; colorManagement: true;"
+      gesture-detector
+    >
+      <a-entity light="type: ambient; color: #ffffff; intensity: 1.1"></a-entity>
+      <a-entity light="type: hemisphere; color: #fff2dc; groundColor: #8a6a43; intensity: 0.9"></a-entity>
+      <a-entity light="type: directional; color: #fff0d0; intensity: 1.8" position="-1 2 1.5"></a-entity>
+
+      <a-entity id="marker-ar" mindar-image-target="targetIndex: 0" marker-listener></a-entity>
+
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    </a-scene>
+  </div>
+
+  <script>
+    // Bersihkan modal bawaan A-Frame
+    (function () {
+      function bersihkan() {
+        document.querySelectorAll('.a-modal, [class*="a-dialog"]').forEach(function (e) { e.remove(); });
+      }
+      new MutationObserver(bersihkan).observe(document.documentElement, { childList: true, subtree: true });
+      setInterval(bersihkan, 500);
+    })();
+
+    /* ====================== DAFTAR MODEL & ASSET .MIND ====================== */
+    const MODELS = [
+      { id: 'ice',        label: 'Es / Perubahan Iklim', file: 'model/ice.js',        type: 'classic', ui: 'ice',     targetMind: './asset/ice.mind' },
+      { id: 'air_naik',   label: 'Air Naik (Es)',        file: 'model/ice.js',        type: 'classic', ui: 'ice',     targetMind: './asset/air_naik.mind' },
+      { id: 'banjir',     label: 'Banjir',               file: 'model/banjir.js',     type: 'module',  ui: 'banjir',  targetMind: './asset/banjir.mind' },
+      { id: 'kebakaran',  label: 'Kebakaran',            file: 'model/kebakaran.js',  type: 'aframe',  ui: 'generik', targetMind: './asset/kebakaran.mind' },
+      { id: 'kekeringan', label: 'Kekeringan',           file: 'model/kekeringan.js', type: 'module',  ui: 'kk1',     targetMind: './asset/kekeringan.mind' },
+    ];
+
+    /* ====================== PENGGABUNG MULTI-.MIND & PEMANGGIL MODEL DINAMIS ====================== */
+    (function () {
+      const origFetch = window.fetch.bind(window);
+      window.fetch = async function (input, init) {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (url.includes('__multi_all__.mind')) {
+          const minds = window.__MULTI_MINDS || [];
+          const buffers = await Promise.all(minds.map(m => origFetch(m.targetMind).then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status + ' pada ' + m.targetMind);
+            return r.arrayBuffer();
+          })));
+
+          try {
+            const C = window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.Compiler;
+            if (C) {
+              const comp = new C();
+              const allData = [];
+              const indexMap = [];
+              buffers.forEach((buf, idx) => {
+                const imported = comp.importData(buf);
+                const list = Array.isArray(imported) ? imported : (imported && imported.dataList) || [];
+                list.forEach(item => {
+                  allData.push(item);
+                  indexMap.push(minds[idx]);
+                });
+              });
+              if (allData.length > 0) {
+                window.__MIND_TARGET_MAP = indexMap;
+                const exported = comp.exportData(allData);
+                return new Response(exported, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } });
+              }
+            }
+          } catch (e) {
+            console.warn('Fallback msgpack binary combiner:', e);
+          }
+
+          const items = [];
+          const indexMap = [];
+          buffers.forEach((buf, idx) => {
+            const u8 = new Uint8Array(buf);
+            let offset = -1, count = 0;
+            for (let i = 0; i < Math.min(u8.length, 32); i++) {
+              if (u8[i] === 0x64 && u8[i+1] === 0x61 && u8[i+2] === 0x74 && u8[i+3] === 0x61 &&
+                  u8[i+4] === 0x4c && u8[i+5] === 0x69 && u8[i+6] === 0x73 && u8[i+7] === 0x74) {
+                const hdr = u8[i + 8];
+                if ((hdr & 0xf0) === 0x90) {
+                  count = hdr & 0x0f;
+                  offset = i + 9;
+                } else if (hdr === 0xdc) {
+                  count = (u8[i + 9] << 8) | u8[i + 10];
+                  offset = i + 11;
+                }
+                break;
+              }
+            }
+            if (offset > 0 && count > 0) {
+              items.push(u8.subarray(offset));
+              for (let c = 0; c < count; c++) indexMap.push(minds[idx]);
+            }
+          });
+
+          if (items.length > 0) {
+            window.__MIND_TARGET_MAP = indexMap;
+            const totalCount = indexMap.length;
+            const prefix = totalCount < 16
+              ? new Uint8Array([0x82, 0xa1, 0x76, 0x02, 0xa8, 0x64, 0x61, 0x74, 0x61, 0x4c, 0x69, 0x73, 0x74, 0x90 | totalCount])
+              : new Uint8Array([0x82, 0xa1, 0x76, 0x02, 0xa8, 0x64, 0x61, 0x74, 0x61, 0x4c, 0x69, 0x73, 0x74, 0xdc, (totalCount >> 8) & 0xff, totalCount & 0xff]);
+            const totalLen = prefix.length + items.reduce((acc, b) => acc + b.length, 0);
+            const merged = new Uint8Array(totalLen);
+            merged.set(prefix, 0);
+            let pos = prefix.length;
+            items.forEach(b => { merged.set(b, pos); pos += b.length; });
+            return new Response(merged.buffer, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } });
+          }
+        }
+        return origFetch(input, init);
+      };
+    })();
+
+    const ORIENTASI = 'tegak';
+    const ROT_X = 20, ROT_Y = 0, ROT_Z = 0;
+    const UKURAN = 1;
+    const UKURAN_PORTRAIT = 1, UKURAN_LANDSCAPE = 1;
+    const SMOOTH = 0.2;
+
+    AFRAME.registerComponent('marker-listener', {
+      init: function () {
+        const tag = document.getElementById('object-tag');
+        const scene = this.el.sceneEl;
+        this.el.addEventListener('targetFound', () => {
+          const idxAttr = this.el.getAttribute('mindar-image-target');
+          const tIdx = idxAttr && typeof idxAttr.targetIndex !== 'undefined' ? +idxAttr.targetIndex : 0;
+          const mappedModel = (window.__MIND_TARGET_MAP && window.__MIND_TARGET_MAP[tIdx]) || (window.__MULTI_MINDS && window.__MULTI_MINDS[tIdx]);
+
+          window.__ACTIVE_MARKER_EL = this.el;
+
+          if (mappedModel && (!window.__MODEL_AKTIF || window.__MODEL_AKTIF.file !== mappedModel.file)) {
+            window.__MODEL_AKTIF = mappedModel;
+            if (typeof window.__muatModelSesuaiMarker === 'function') {
+              window.__muatModelSesuaiMarker(mappedModel);
+            }
+          } else if (mappedModel) {
+            window.__MODEL_AKTIF = mappedModel;
+            const sel = document.getElementById('pilihModel');
+            if (sel && sel.value !== mappedModel.id) sel.value = mappedModel.id;
+          }
+
+          const nama = (window.__MODEL_AKTIF && window.__MODEL_AKTIF.label) || 'DIORAMA';
+          tag.innerText = '🌍 DETEKSI: ' + nama.toUpperCase();
+          tag.style.display = 'block';
+          scene.emit('markerFound');
+        });
+        this.el.addEventListener('targetLost', () => {
+          if (window.__ACTIVE_MARKER_EL === this.el) {
+            tag.style.display = 'none';
+            scene.emit('markerLost');
+          }
+        });
+      }
+    });
+
+    AFRAME.registerComponent('smooth-follow', {
+      schema: { target: { type: 'selector' }, factor: { type: 'number', default: 0.2 } },
+      init: function () {
+        const T = AFRAME.THREE;
+        this.p = new T.Vector3(); this.q = new T.Quaternion(); this.s = new T.Vector3();
+        this.snap = true;
+        this.el.object3D.visible = false;
+      },
+      tick: function () {
+        const activeEl = window.__ACTIVE_MARKER_EL || this.data.target;
+        const t = activeEl && activeEl.object3D;
+        if (!t) return;
+        const o = this.el.object3D;
+        if (!t.visible) { o.visible = false; this.snap = true; return; }
+        t.matrix.decompose(this.p, this.q, this.s);
+        if (this.snap) {
+          o.position.copy(this.p); o.quaternion.copy(this.q); o.scale.copy(this.s);
+          this.snap = false;
+        } else {
+          const f = this.data.factor;
+          o.position.lerp(this.p, f); o.quaternion.slerp(this.q, f); o.scale.lerp(this.s, f);
+        }
+        o.visible = true;
+      }
+    });
+
+    AFRAME.registerComponent('ar-model-ticker', {
+      tick: function (t, dt) {
+        if (window.__CAPTURED_LOOPS && window.__CAPTURED_LOOPS.length) {
+          for (let i = 0; i < window.__CAPTURED_LOOPS.length; i++) {
+            try { window.__CAPTURED_LOOPS[i](t, dt); } catch (e) {}
+          }
+        }
+        if (window.__AFRAME_COMP_TICK) {
+          try { window.__AFRAME_COMP_TICK(t, dt); } catch (e) {}
+        }
+      }
+    });
+
+    (function () {
+      const sel = document.getElementById('pilihModel');
+      const err = document.getElementById('muatError');
+      const param = new URLSearchParams(location.search).get('model');
+      const aktif = MODELS.find(function (m) { return m.id === param; }) || MODELS[0];
+      window.__MODEL_AKTIF = aktif;
+      window.__MULTI_MINDS = MODELS;
+      window.__MODEL_CACHE = {};
+
+      const sceneEl = document.querySelector('a-scene');
+
+      if (!param) {
+        sceneEl.setAttribute('mindar-image', 'imageTargetSrc: ./asset/__multi_all__.mind; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 100; missTolerance: 30; warmupTolerance: 5; uiLoading: no; uiScanning: no; uiError: no;');
+        MODELS.forEach(function (m, idx) {
+          if (idx === 0) return;
+          const ent = document.createElement('a-entity');
+          ent.id = 'marker-ar-' + idx;
+          ent.setAttribute('mindar-image-target', 'targetIndex: ' + idx);
+          ent.setAttribute('marker-listener', '');
+          sceneEl.appendChild(ent);
+        });
+      } else if (aktif.targetMind) {
+        window.__MIND_TARGET_MAP = [aktif];
+        sceneEl.setAttribute('mindar-image', `imageTargetSrc: ${aktif.targetMind}; filterMinCF: 0.0001; filterBeta: 100; missTolerance: 30; warmupTolerance: 5; uiLoading: no; uiScanning: no; uiError: no;`);
+      }
+
+      MODELS.forEach(function (m) {
+        const o = document.createElement('option');
+        o.value = m.id; o.textContent = m.label; o.selected = m.id === aktif.id;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () {
+        const dipilih = MODELS.find(function (m) { return m.id === sel.value; });
+        if (!param && dipilih && typeof window.__muatModelSesuaiMarker === 'function') {
+          window.__MODEL_AKTIF = dipilih;
+          window.__muatModelSesuaiMarker(dipilih);
+          return;
+        }
+        const u = new URL(location.href);
+        u.searchParams.set('model', sel.value);
+        location.href = u.toString();
+      });
+
+      function pasangUIModel(modelCfg) {
+        const panelEl = document.getElementById('panel');
+        const hintEl = document.querySelector('#panel .hint');
+        Array.from(panelEl.children).forEach(function (ch) {
+          if (ch.tagName !== 'H1' && ch.id !== 'pilihModel' && ch.id !== 'muatError' && !ch.classList.contains('hint')) {
+            ch.remove();
+          }
+        });
+        const infoEl = document.getElementById('gInfo');
+        if (infoEl) { infoEl.hidden = true; infoEl.textContent = ''; }
+        const tpl = document.getElementById('ui-' + modelCfg.ui);
+        if (tpl) panelEl.insertBefore(tpl.content.cloneNode(true), hintEl);
+        document.title = 'AR Diorama - ' + modelCfg.label;
+        if (sel.value !== modelCfg.id) sel.value = modelCfg.id;
+      }
+
+      pasangUIModel(aktif);
+
+      const holder = document.createElement('a-entity');
+      holder.id = 'holder-halus';
+      holder.setAttribute('smooth-follow', 'target: #marker-ar; factor: ' + SMOOTH);
+      holder.setAttribute('ar-model-ticker', '');
+
+      const pivot = document.createElement('a-entity');
+      pivot.id = 'pivot-model';
+      const rx = (ORIENTASI === 'berdiri' ? 90 : 0) + ROT_X;
+      pivot.setAttribute('rotation', rx + ' ' + ROT_Y + ' ' + ROT_Z);
+
+      function terapkanUkuran() {
+        const potret = window.innerHeight >= window.innerWidth;
+        const k = UKURAN * (potret ? UKURAN_PORTRAIT : UKURAN_LANDSCAPE);
+        pivot.setAttribute('scale', k + ' ' + k + ' ' + k);
+      }
+      terapkanUkuran();
+      window.addEventListener('resize', terapkanUkuran);
+      window.addEventListener('orientationchange', terapkanUkuran);
+
+      const m = document.createElement('a-entity');
+      m.id = 'model-utama';
+      m.setAttribute('gesture-handler', 'minScale: 0.25; maxScale: 4');
+      pivot.appendChild(m);
+      holder.appendChild(pivot);
+      sceneEl.appendChild(holder);
+
+      window.__pasangKeAR = function (obj3D, customScale) {
+        const targetEl = document.getElementById('model-utama');
+        if (!targetEl || !obj3D) return;
+        const wrapper = new AFRAME.THREE.Group();
+        wrapper.add(obj3D);
+
+        const box = new AFRAME.THREE.Box3().setFromObject(obj3D);
+        const size = new AFRAME.THREE.Vector3();
+        const center = new AFRAME.THREE.Vector3();
+        box.getSize(size);
+        box.getCenter(center);
+
+        const maxDim = Math.min(Math.max(size.x, size.y, size.z), 45) || 40;
+        const s = customScale || (1.15 / maxDim);
+        wrapper.scale.setScalar(s);
+        wrapper.position.set(-center.x * s, -center.y * s, -center.z * s);
+
+        targetEl.setObject3D('mesh', wrapper);
+        if (window.__MODEL_AKTIF) {
+          window.__MODEL_CACHE[window.__MODEL_AKTIF.file] = { wrapper: wrapper };
+        }
+      };
+
+      window.__jalankanKomponenAframe = function (compName) {
+        const def = window.__REGISTERED_COMPS[compName];
+        if (!def) throw new Error('Komponen "' + compName + '" tidak terdaftar.');
+
+        let mesh = null;
+        const sceneTiruan = new EventTarget();
+        const elTiruan = new EventTarget();
+        Object.assign(elTiruan, {
+          object3D: new AFRAME.THREE.Object3D(), sceneEl: sceneTiruan, emit() {},
+          setObject3D(n, o) { mesh = o; }, getObject3D() { return mesh; }, removeObject3D() {},
+        });
+        const inst = Object.assign({}, def);
+        inst.data = {};
+        inst.el = elTiruan;
+        inst.init();
+        if (!mesh) throw new Error('Komponen tidak menghasilkan objek 3D');
+
+        window.__pasangKeAR(mesh);
+        if (def.tick) {
+          window.__AFRAME_COMP_TICK = function (t, dt) { inst.tick(t, dt); };
+        }
+
+        const mainScene = document.querySelector('a-scene');
+        mainScene.addEventListener('markerFound', () => sceneTiruan.dispatchEvent(new Event('markerFound')));
+        mainScene.addEventListener('markerLost', () => sceneTiruan.dispatchEvent(new Event('markerLost')));
+
+        const btnWrap = document.getElementById('gStageButtons');
+        const infoEl = document.getElementById('gInfo');
+        const apiKey = Object.keys(window).find((k) => window[k] && typeof window[k].setStage === 'function' && window[k].jumlah);
+        const K = apiKey ? window[apiKey] : null;
+        if (btnWrap && K) {
+          const jumlah = K.jumlah || 0;
+          const INFO = K.INFO || [];
+          const tombol = [];
+          function pilih(n) {
+            K.setStage(n);
+            tombol.forEach((b, i) => b.classList.toggle('on', i === n - 1));
+            const inf = INFO[n - 1];
+            infoEl.hidden = !inf;
+            if (inf) {
+              infoEl.textContent = '';
+              const t = document.createElement('b');
+              t.textContent = 'Tahap ' + n + ': ' + inf.judul;
+              infoEl.append(t, inf.teks);
+            }
+          }
+          for (let n = 1; n <= jumlah; n++) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = n + ' · ' + ((INFO[n - 1] && INFO[n - 1].judul) || 'Tahap ' + n);
+            b.addEventListener('click', () => pilih(n));
+            btnWrap.appendChild(b);
+            tombol.push(b);
+          }
+          addEventListener('keydown', (e) => { const n = +e.key; if (n >= 1 && n <= jumlah) pilih(n); });
+          pilih(K.tahap || 1);
+        }
+      };
+
+      function gagal(e) {
+        const f = (window.__MODEL_AKTIF && window.__MODEL_AKTIF.file) || aktif.file;
+        err.textContent = 'Gagal memuat ' + f + ': ' + ((e && e.message) || e);
+        console.error(e);
+      }
+
+      let activePollTimer = null;
+
+      window.__muatModelSesuaiMarker = function (modelCfg) {
+        if (!modelCfg) return;
+        err.textContent = '';
+        if (activePollTimer) { clearInterval(activePollTimer); activePollTimer = null; }
+
+        pasangUIModel(modelCfg);
+        window.__AFRAME_COMP_TICK = null;
+
+        const prevSceneCount = window.__CAPTURED_SCENES.length;
+        const url = new URL(modelCfg.file, location.href).href + '?t=' + Date.now();
+
+        if (modelCfg.type === 'aframe') {
+          const s = document.createElement('script');
+          s.src = url;
+          s.onload = function () {
+            try {
+              const cfg = window.MODEL_CONFIG || {};
+              const compName = cfg.komponen || Object.keys(window.__REGISTERED_COMPS).pop();
+              if (!compName) throw new Error('Komponen A-Frame tidak ditemukan pada ' + modelCfg.file);
+              window.__jalankanKomponenAframe(compName);
+            } catch (e) { gagal(e); }
+          };
+          s.onerror = function () { gagal(new Error('file tidak ditemukan: ' + modelCfg.file)); };
+          document.body.appendChild(s);
+        } else if (modelCfg.type === 'classic') {
+          const savedAframe = window.AFRAME;
+          const s = document.createElement('script');
+          s.src = url;
+          s.onload = function () { pantauSceneStandalone(prevSceneCount, modelCfg); };
+          s.onerror = function () { gagal(new Error('file tidak ditemukan: ' + modelCfg.file)); };
+          try {
+            window.AFRAME = undefined;
+            document.body.appendChild(s);
+            s.addEventListener('load', function () { window.AFRAME = savedAframe; });
+            s.addEventListener('error', function () { window.AFRAME = savedAframe; });
+          } catch (e) {
+            window.AFRAME = savedAframe;
+          }
+        } else {
+          import(url).then(function () { pantauSceneStandalone(prevSceneCount, modelCfg); }).catch(gagal);
+        }
+      };
+
+      function pantauSceneStandalone(prevCount, modelCfg) {
+        const startIdx = typeof prevCount === 'number' ? prevCount : 0;
+        const cfg = modelCfg || window.__MODEL_AKTIF || aktif;
+        let tries = 0;
+        activePollTimer = setInterval(function () {
+          tries++;
+          if (window.__CAPTURED_SCENES.length > startIdx) {
+            clearInterval(activePollTimer);
+            activePollTimer = null;
+            const capturedScene = window.__CAPTURED_SCENES[window.__CAPTURED_SCENES.length - 1];
+            const arGroup = new AFRAME.THREE.Group();
+            const toMove = [];
+            capturedScene.children.forEach(function (ch) {
+              if (!ch.isLight && !ch.isCamera) toMove.push(ch);
+            });
+            toMove.forEach(function (ch) { arGroup.add(ch); });
+            window.__pasangKeAR(arGroup);
+          } else if (window.MODEL_CONFIG && window.MODEL_CONFIG.komponen && window.__REGISTERED_COMPS[window.MODEL_CONFIG.komponen]) {
+            clearInterval(activePollTimer);
+            activePollTimer = null;
+            window.__jalankanKomponenAframe(window.MODEL_CONFIG.komponen);
+          } else if (tries > 120) {
+            clearInterval(activePollTimer);
+            activePollTimer = null;
+            gagal(new Error('Waktu tunggu habis: Scene 3D tidak terdeteksi dari ' + cfg.file));
+          }
+        }, 50);
+      }
+
+      window.__muatModelSesuaiMarker(aktif);
+    })();
+  </script>
+
+  <!-- Penyesuaian Layar MindAR, Loading, & Kontrol UI -->
+  <script>
+    (function () {
+      const sc = document.querySelector('a-scene');
+      let sedangKirim = false, timers = [];
+      function setVh() { document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px'); }
+      function kirim() {
+        setVh();
+        sedangKirim = true;
+        try { if (sc.renderer && sc.resize) sc.resize(); } catch (e) {}
+        window.dispatchEvent(new Event('resize'));
+        sedangKirim = false;
+      }
+      function jadwalkan() {
+        timers.forEach(clearTimeout);
+        timers = [100, 300, 700, 1200].map(function (ms) { return setTimeout(kirim, ms); });
+      }
+      setVh();
+      sc.addEventListener('arReady', jadwalkan);
+      window.addEventListener('orientationchange', jadwalkan);
+      if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', jadwalkan);
+      window.addEventListener('resize', function () { if (!sedangKirim) jadwalkan(); });
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (!sedangKirim) jadwalkan(); });
+
+      function sembunyikanLoading() { const l = document.getElementById('loading'); if (l) l.style.display = 'none'; }
+      sc.addEventListener('arReady', sembunyikanLoading);
+      sc.addEventListener('arError', function () {
+        const l = document.getElementById('loading');
+        if (l) {
+          l.textContent = 'Kamera atau file .mind gagal dimuat. Pastikan memakai HTTPS/localhost, izinkan akses kamera, dan file .mind tersedia di folder ./asset/.';
+          l.style.fontSize = '13px'; l.style.letterSpacing = '1px';
+        }
+      });
+      sc.addEventListener('loaded', function () { setTimeout(sembunyikanLoading, 8000); });
+
+      const panel = document.getElementById('panel');
+      const overlay = document.getElementById('overlay');
+      const infoModal = document.getElementById('info-modal');
+
+      document.getElementById('btn-toggle-panel').addEventListener('click', function () {
+        panel.classList.toggle('collapsed');
+      });
+
+      function tutupInfo() {
+        infoModal.classList.remove('show');
+        overlay.classList.remove('show');
+        infoModal.setAttribute('aria-hidden', 'true');
+      }
+      document.getElementById('btn-info').addEventListener('click', function () {
+        infoModal.classList.add('show');
+        overlay.classList.add('show');
+        infoModal.setAttribute('aria-hidden', 'false');
+      });
+      overlay.addEventListener('click', tutupInfo);
+      document.getElementById('info-close').addEventListener('click', tutupInfo);
+
+      let frame = null;
+      document.getElementById('btn-next').addEventListener('click', function () {
+        const el = document.getElementById('model-utama');
+        if (!el || !el.object3D) return;
+        if (frame) cancelAnimationFrame(frame);
+        const dari = el.object3D.rotation.y, ke = dari + Math.PI / 4, mulai = performance.now();
+        (function langkah(now) {
+          const t = Math.min((now - mulai) / 300, 1);
+          el.object3D.rotation.y = dari + (ke - dari) * (1 - Math.pow(1 - t, 3));
+          frame = t < 1 ? requestAnimationFrame(langkah) : null;
+        })(mulai);
+      });
+    })();
+  </script>
+</body>
+</html>

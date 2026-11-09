@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>StellarX — Banjir</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --white: #fff;
+      --amber: #ffb347;
+      --line: rgba(120, 190, 255, .38);
+      --mono: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #02050d;
+      color: var(--white);
+      font-family: var(--mono);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Kanvas Three.js + label CSS2D */
+    #app { position: fixed; inset: 0; }
+
+    /* Ruang 3D video YouTube (menggantikan model 3D saat mode video) */
+    #videoView {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 48% 34% at 66% 58%, rgba(255, 140, 40, .22), transparent 72%),
+        radial-gradient(ellipse 110% 45% at 75% 108%, rgba(40, 130, 255, .4), transparent 72%),
+        linear-gradient(180deg, #000 0%, #02050d 55%, #061226 100%);
+    }
+    #videoView[hidden] { display: none; }
+
+    /* Label teks di bawah tiap tahap (dipakai banjir.js) */
+    .lbl {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--white);
+      background: rgba(0, 8, 24, .65);
+      border: 1px solid var(--line);
+      padding: 4px 10px;
+      white-space: nowrap;
+    }
+
+    /* Panel kontrol */
+    .panel {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      width: 290px;
+      max-width: calc(100vw - 32px);
+      max-height: calc(100svh - 32px);
+      overflow-y: auto;
+      padding: 16px;
+      border: 1px solid var(--line);
+      background: rgba(0, 8, 24, .72);
+      backdrop-filter: blur(6px);
+      font-size: 12px;
+      line-height: 1.5;
+      z-index: 10;
+    }
+    .panel h1 {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .panel .back {
+      display: inline-block;
+      color: var(--white);
+      text-decoration: none;
+      opacity: .7;
+      margin-bottom: 12px;
+    }
+    .panel .back:hover { color: var(--amber); opacity: 1; }
+    .panel h2 {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      opacity: .6;
+      margin: 14px 0 8px;
+    }
+
+    /* Baris judul + tombol kecilkan */
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    #minBtn {
+      padding: 2px 9px;
+      font-size: 14px;
+      line-height: 1.3;
+    }
+
+    /* Keadaan panel dikecilkan: hanya judul dan tombol video yang tersisa */
+    .panel.min {
+      width: 200px;
+      padding: 10px 12px;
+    }
+    .panel.min .fold { display: none; }
+    .panel.min h1 { margin-bottom: 0; }
+
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    button {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--white);
+      background: rgba(0, 8, 24, .55);
+      border: 1px solid var(--line);
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: border-color .25s, background .25s;
+    }
+    button:hover, button:focus-visible {
+      border-color: var(--amber);
+      background: rgba(255, 179, 71, .08);
+      outline: none;
+    }
+    button.on {
+      border-color: var(--amber);
+      background: rgba(255, 179, 71, .18);
+    }
+    button.wide { width: 100%; margin-top: 8px; }
+
+    label.chk {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      cursor: pointer;
+    }
+    label.chk input { accent-color: var(--amber); }
+
+    #list { list-style: none; opacity: .85; }
+    #list li { padding: 2px 0; }
+    #total { margin-top: 6px; font-weight: 600; }
+
+    #errors {
+      margin-top: 10px;
+      color: #ff8a80;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    #errors:empty { display: none; }
+
+    .hint { margin-top: 12px; opacity: .55; }
+
+    /* Kartu penjelasan tahap */
+    .info {
+      position: fixed;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      width: min(680px, calc(100vw - 32px));
+      max-height: 38svh;
+      overflow-y: auto;
+      padding: 16px 20px;
+      border: 1px solid var(--line);
+      background: rgba(0, 8, 24, .78);
+      backdrop-filter: blur(6px);
+      font-size: 13px;
+      line-height: 1.6;
+      z-index: 10;
+    }
+    .info h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .info p { opacity: .92; }
+    .info .item + .item {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    @media (max-width: 600px) {
+      .panel { width: calc(100vw - 32px); max-height: 45svh; }
+      .info { max-height: 34svh; font-size: 12px; }
+    }
+  </style>
+
+  <!-- Peta modul agar import 'three' dan 'three/addons/...' di banjir.js terbaca -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- Kanvas 3D -->
+  <div id="app"></div>
+
+  <!-- Ruang 3D video YouTube (diisi lewat script saat pertama kali dibuka) -->
+  <div id="videoView" hidden></div>
+
+  <!-- Panel kontrol -->
+  <aside class="panel" id="panel">
+    <div class="panel-head">
+      <h1>Banjir</h1>
+      <button id="minBtn" type="button" aria-label="Kecilkan menu" title="Kecilkan menu">–</button>
+    </div>
+    <a class="back fold" href="/ar3.html">&larr; Kembali</a>
+
+    <h2 class="fold">Tahap</h2>
+    <div class="row fold">
+      <button id="b1">1 Awan</button>
+      <button id="b2">2 Hujan</button>
+      <button id="b3">3 Meluap</button>
+      <button id="b4">4 Banjir</button>
+    </div>
+    <label class="chk fold">
+      <input type="checkbox" id="all" />
+      Tampilkan semua tahap
+    </label>
+
+    <button id="vidBtn" class="wide">Ubah ke video</button>
+
+    <!-- Ekspor GLB + anggaran segitiga: disembunyikan (elemen tetap ada agar banjir.js tidak error) -->
+    <div hidden>
+      <h2>Ekspor GLB</h2>
+      <div class="row">
+        <button id="e1">Tahap 1</button>
+        <button id="e2">Tahap 2</button>
+        <button id="e3">Tahap 3</button>
+        <button id="e4">Tahap 4</button>
+      </div>
+      <button id="exEach" class="wide">Ekspor semua (4 file)</button>
+
+      <h2>Anggaran segitiga</h2>
+      <ul id="list"></ul>
+      <div id="total"></div>
+    </div>
+
+    <div id="errors"></div>
+
+    <p class="hint fold">Tombol 1–4 di keyboard untuk ganti tahap. Seret untuk memutar, scroll untuk zoom.</p>
+  </aside>
+
+  <!-- Kartu penjelasan tahap -->
+  <section class="info" id="info" aria-live="polite"></section>
+
+  <!-- Panggil banjir.js -->
+  <script type="module" src="/model/banjir.js"></script>
+
+  <!-- Penjelasan tiap tahap + kecilkan menu + pindah mode video/3D (terpisah dari banjir.js) -->
+  <script type="module">
+    const $ = (id) => document.getElementById(id);
+
+    // ===== Kecilkan / buka menu =====
+    const panel = $('panel');
+    const minBtn = $('minBtn');
+    minBtn.onclick = () => {
+      const kecil = panel.classList.toggle('min');
+      minBtn.textContent = kecil ? '+' : '–';
+      minBtn.setAttribute('aria-label', kecil ? 'Buka menu' : 'Kecilkan menu');
+      minBtn.title = kecil ? 'Buka menu' : 'Kecilkan menu';
+    };
+
+    // ===== Penjelasan tiap tahap =====
+    const STAGES = {
+      1: {
+        judul: 'Tahap 1: Awan Berkumpul',
+        isi: 'Panas matahari menguapkan air dari laut, sungai, dan tanah. Uap air naik, mendingin, lalu mengembun menjadi awan. Awan terus berkumpul di atas pegunungan, tetapi belum ada hujan. Sungai masih mengalir normal dan airnya jernih.'
+      },
+      2: {
+        judul: 'Tahap 2: Hujan Deras',
+        isi: 'Awan yang penuh air menjadi gelap dan rendah, lalu menurunkan hujan deras. Sebagian air meresap ke tanah, sisanya mengalir di permukaan menuju sungai. Aliran dari lereng membawa tanah, sehingga air sungai mulai keruh dan permukaannya naik.'
+      },
+      3: {
+        judul: 'Tahap 3: Sungai Meluap',
+        isi: 'Hujan yang terus turun membuat tanah jenuh sehingga hampir semua air mengalir ke sungai. Debit sungai melebihi daya tampung alurnya, lalu air meluap ke tepian. Aliran menjadi deras, keruh kecokelatan, dan penuh buih serta puing.'
+      },
+      4: {
+        judul: 'Tahap 4: Banjir',
+        isi: 'Luapan air menyebar ke dataran rendah dan menggenangi rumah, jalan, serta lahan di sekitar sungai. Banjir merusak bangunan dan infrastruktur, mengganggu aktivitas warga, serta membawa lumpur dan sampah.'
+      }
+    };
+
+    const info = $('info');
+    const item = (s) => `<div class="item"><h3>${s.judul}</h3><p>${s.isi}</p></div>`;
+
+    function renderInfo() {
+      let n = 0;
+      for (let k = 1; k <= 4; k++) if ($('b' + k).classList.contains('on')) n = k;
+      info.innerHTML = n ? item(STAGES[n]) : [1, 2, 3, 4].map((k) => item(STAGES[k])).join('');
+    }
+
+    // Pantau perubahan tahap lewat kelas "on" pada tombol (diatur banjir.js)
+    const mo = new MutationObserver(renderInfo);
+    for (let k = 1; k <= 4; k++) mo.observe($('b' + k), { attributes: true, attributeFilter: ['class'] });
+    renderInfo();
+
+    // ===== Ruang 3D untuk video YouTube =====
+    const VIDEO_ID = 'GANTI_DENGAN_ID_VIDEO'; // <- isi dengan ID video YouTube, mis. 'abc123XYZ'
+
+    const videoView = $('videoView');
+    let V = null; // dibuat sekali, saat pertama kali masuk mode video
+
+    async function ensureVideo3D() {
+      if (V) return V;
+
+      const THREE = await import('three');
+      const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+      const { CSS3DRenderer, CSS3DObject } = await import('three/addons/renderers/CSS3DRenderer.js');
+
+      const W = 960, H = 540, M = 22, D = 34; // ukuran layar, tebal bingkai, kedalaman bingkai
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(40, 1, 10, 6000);
+
+      // Lapisan WebGL (bingkai + bintang) di bawah, lapisan CSS3D (video) di atas
+      const gl = new THREE.WebGLRenderer({ antialiased: true, antialias: true, alpha: true });
+      gl.setPixelRatio(Math.min(devicePixelRatio, 2));
+      gl.setClearColor(0x000000, 0);
+      Object.assign(gl.domElement.style, { position: 'absolute', inset: '0' });
+
+      const css = new CSS3DRenderer();
+      Object.assign(css.domElement.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
+
+      videoView.append(gl.domElement, css.domElement);
+
+      // Layar video
+      const screen = new THREE.Group();
+      scene.add(screen);
+
+      const div = document.createElement('div');
+      Object.assign(div.style, { width: W + 'px', height: H + 'px', background: '#000' });
+      const iframe = document.createElement('iframe');
+      Object.assign(iframe.style, { width: '100%', height: '100%', border: '0' });
+      iframe.title = 'Video YouTube';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      iframe.allowFullscreen = true;
+      div.appendChild(iframe);
+      screen.add(new CSS3DObject(div));
+
+      // Bingkai bertebal + garis tepi amber
+      const boxGeo = new THREE.BoxGeometry(W + M * 2, H + M * 2, D);
+      const faceColors = [0x0b1f3d, 0x0b1f3d, 0x12315e, 0x081730, 0x061226, 0x040b18]; // kanan, kiri, atas, bawah, depan, belakang
+      const box = new THREE.Mesh(boxGeo, faceColors.map((c) => new THREE.MeshBasicMaterial({ color: c })));
+      box.position.z = -D / 2 - 1;
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), new THREE.LineBasicMaterial({ color: 0xffb347 }));
+      edges.position.copy(box.position);
+      screen.add(box, edges);
+
+      // Bintang di sekeliling
+      const N = 900, pos = new Float32Array(N * 3), cols = new Float32Array(N * 3);
+      for (let i = 0; i < N; i++) {
+        const r = 1200 + Math.random() * 1800;
+        const th = Math.random() * Math.PI * 2;
+        const ph = Math.acos(2 * Math.random() - 1);
+        pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
+        pos[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
+        pos[i * 3 + 2] = r * Math.cos(ph);
+        const amber = Math.random() < 0.15;
+        cols[i * 3] = amber ? 1 : 0.5;
+        cols[i * 3 + 1] = amber ? 0.7 : 0.75;
+        cols[i * 3 + 2] = amber ? 0.28 : 1;
+      }
+      const starGeo = new THREE.BufferGeometry();
+      starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      starGeo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+      const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 3, vertexColors: true, transparent: true, opacity: 0.9 }));
+      scene.add(stars);
+
+      // Kontrol putar (dibatasi supaya layar tidak terbalik)
+      const controls = new OrbitControls(camera, gl.domElement);
+      controls.enableDamping = true;
+      controls.enablePan = false;
+      controls.minAzimuthAngle = -0.7;
+      controls.maxAzimuthAngle = 0.7;
+      controls.minPolarAngle = Math.PI / 2 - 0.45;
+      controls.maxPolarAngle = Math.PI / 2 + 0.35;
+
+      V = { running: false, raf: 0, dist: 1200, iframe };
+
+      V.resize = () => {
+        const w = innerWidth, h = innerHeight;
+        gl.setSize(w, h);
+        css.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+        V.dist = Math.max(((H + M * 2) * 1.25 / 2) / t, ((W + M * 2) * 1.15 / 2) / (t * camera.aspect));
+        controls.minDistance = V.dist * 0.6;
+        controls.maxDistance = V.dist * 1.3;
+      };
+
+      V.loop = () => {
+        if (!V.running) return;
+        V.raf = requestAnimationFrame(V.loop);
+        const t = performance.now() / 1000;
+        screen.position.y = Math.sin(t * 0.8) * 8; // melayang pelan
+        stars.rotation.y = t * 0.01;
+        controls.update();
+        gl.render(scene, camera);
+        css.render(scene, camera);
+      };
+
+      V.start = () => {
+        V.resize();
+        camera.position.set(0, 0, V.dist);
+        controls.target.set(0, 0, 0);
+        controls.update();
+        V.running = true;
+        V.loop();
+      };
+
+      V.stop = () => {
+        V.running = false;
+        cancelAnimationFrame(V.raf);
+      };
+
+      addEventListener('resize', () => { if (V.running) V.resize(); });
+      return V;
+    }
+
+    // ===== Pindah mode: 3D model <-> video YouTube =====
+    const vidBtn = $('vidBtn');
+    let modeVideo = false;
+
+    vidBtn.onclick = async () => {
+      modeVideo = !modeVideo;
+
+      if (modeVideo) {
+        info.hidden = true;       // penjelasan disembunyikan saat mode video
+        videoView.hidden = false;
+        vidBtn.textContent = 'Ubah ke 3D model';
+        try {
+          const v = await ensureVideo3D();
+          if (!modeVideo) return; // sudah ditekan lagi sebelum selesai dimuat
+          v.iframe.src = `https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&rel=0`;
+          v.start();
+        } catch (e) {
+          $('errors').textContent += `Mode video gagal: ${(e && e.message) || e}\n`;
+        }
+      } else {
+        if (V) {
+          V.stop();
+          V.iframe.src = 'about:blank'; // hentikan video saat kembali ke 3D
+        }
+        videoView.hidden = true;
+        info.hidden = false;
+        vidBtn.textContent = 'Ubah ke video';
+      }
+    };
+  </script>
+</body>
+</html>
