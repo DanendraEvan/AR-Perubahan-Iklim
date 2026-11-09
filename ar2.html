@@ -2289,16 +2289,12 @@
           function resetAll() {
             resetView();
             gasTarget = 0;
-            $("#gas").value = 0;
           }
           window.SIM = { reset: resetAll };
 
           $("#x").onclick = resetView;
           $("#next").onclick = () => runSimStep(stepIndex + 1);
           $("#back").onclick = () => runSimStep(stepIndex - 1);
-          $("#gas").oninput = (e) => {
-            gasTarget = e.target.value / 100;
-          };
           $("#nar").onclick = () => {
             if (!("speechSynthesis" in window) || !currentItem) {
               showToast("Browser ini tidak mendukung fitur narasi suara.");
@@ -2635,17 +2631,6 @@
         document
           .getElementById("info-close")
           .addEventListener("click", tutupSemua);
-        document
-          .getElementById("menu-reload")
-          .addEventListener("click", function () {
-            location.reload();
-          });
-        document
-          .getElementById("menu-sim-reset")
-          .addEventListener("click", function () {
-            if (window.SIM) window.SIM.reset();
-            tutupSemua();
-          });
         document.addEventListener("keydown", function (e) {
           if (e.key === "Escape") tutupSemua();
         });

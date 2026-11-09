@@ -15,7 +15,7 @@
       rel="stylesheet"
     />
 
-    <!-- A-Frame + MindAR (image tracking, membaca ./targets.mind). AR.js tidak dipakai lagi -->
+    <!-- A-Frame + MindAR (image tracking) -->
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     <script src="https://raw.githack.com/donmccurdy/aframe-extras/master/dist/aframe-extras.loaders.min.js"></script>
@@ -185,6 +185,131 @@
         left: 20px;
       }
 
+      /* === PENOMORAN LAPISAN ATMOSFER === */
+      #atmo-nav {
+        position: absolute;
+        bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10001;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        background: rgba(0, 8, 20, 0.72);
+        padding: 6px 10px;
+        border-radius: 30px;
+        border: 1.5px solid rgba(51, 204, 255, 0.55);
+        box-shadow: 0 0 18px rgba(51, 204, 255, 0.35);
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+        pointer-events: auto;
+      }
+      .atmo-num-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.65);
+        border: 1.5px solid #33ccff;
+        color: #33ccff;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition: all 0.2s ease;
+        padding: 0;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .atmo-num-btn:hover {
+        background: rgba(51, 204, 255, 0.22);
+      }
+      .atmo-num-btn.active {
+        background: #33ccff;
+        color: #000;
+        box-shadow: 0 0 14px #33ccff;
+        transform: scale(1.1);
+      }
+      .atmo-num-btn.reset-btn {
+        border-color: #ffb347;
+        color: #ffb347;
+        font-size: 16px;
+        display: none;
+      }
+      .atmo-num-btn.reset-btn.visible {
+        display: grid;
+      }
+      .atmo-num-btn.reset-btn:hover {
+        background: rgba(255, 179, 71, 0.22);
+      }
+
+      /* === KARTU PENJELASAN ATMOSFER === */
+      #atmo-card {
+        position: absolute;
+        bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+        left: 50%;
+        transform: translateX(-50%) translateY(16px);
+        width: min(88vw, 350px);
+        background: rgba(2, 10, 24, 0.9);
+        border: 1.5px solid #33ccff;
+        border-radius: 12px;
+        padding: 14px 16px;
+        color: #fff;
+        z-index: 10001;
+        box-shadow: 0 0 24px rgba(51, 204, 255, 0.45);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.28s ease, transform 0.28s ease;
+        box-sizing: border-box;
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+      }
+      #atmo-card.show {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateX(-50%) translateY(0);
+      }
+      .atmo-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        gap: 8px;
+      }
+      .atmo-badge {
+        background: rgba(51, 204, 255, 0.18);
+        border: 1px solid #33ccff;
+        color: #33ccff;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 99px;
+        letter-spacing: 0.5px;
+      }
+      .atmo-card-close {
+        background: none;
+        border: none;
+        color: #33ccff;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+        line-height: 1;
+        padding: 2px 6px;
+        font-family: inherit;
+      }
+      #atmo-title {
+        margin: 0 0 6px;
+        color: #33ccff;
+        font-size: 15px;
+        letter-spacing: 1px;
+      }
+      #atmo-desc {
+        margin: 0;
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: #e2f4ff;
+      }
+
       #overlay {
         position: fixed;
         inset: 0;
@@ -304,7 +429,7 @@
         outline: none;
       }
 
-      /* Wadah UI: diputar mengikuti arah HP sebenarnya (lihat skrip sensor di bawah) */
+      /* Wadah UI: diputar mengikuti arah HP sebenarnya */
       #ui-rot {
         position: fixed;
         left: 50%;
@@ -314,7 +439,9 @@
         transform: translate(-50%, -50%);
       }
       #ui-rot .ui-btn,
-      #ui-rot #menu-panel {
+      #ui-rot #menu-panel,
+      #ui-rot #atmo-nav,
+      #ui-rot #atmo-card.show {
         pointer-events: auto;
       }
       #ui-rot #info-modal {
@@ -335,6 +462,19 @@
       #ui-rot.land #btn-next {
         bottom: calc(12px + env(safe-area-inset-bottom, 0px));
       }
+      #ui-rot.land #atmo-nav {
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        padding: 4px 8px;
+      }
+      #ui-rot.land .atmo-num-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 13px;
+      }
+      #ui-rot.land #atmo-card {
+        bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+        padding: 10px 14px;
+      }
       #ui-rot.land #gui-container {
         top: calc(10px + env(safe-area-inset-top, 0px));
         width: 40%;
@@ -346,7 +486,6 @@
         padding: 16px;
       }
 
-      /* Penyesuaian landscape / layar pendek / poni (notch) */
       #btn-menu,
       #btn-next {
         left: calc(20px + env(safe-area-inset-left, 0px));
@@ -368,6 +507,9 @@
           top: calc(10px + env(safe-area-inset-top, 0px));
         }
         #btn-next {
+          bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        }
+        #atmo-nav {
           bottom: calc(12px + env(safe-area-inset-bottom, 0px));
         }
         #gui-container {
@@ -395,7 +537,6 @@
               (window.MODEL_CONFIG && window.MODEL_CONFIG.nama) || "Model";
             tag.innerText = "🌍 DETEKSI: " + nama.toUpperCase();
             tag.style.display = "block";
-            // gesture-handler mendengarkan event "markerFound" pada scene
             scene.emit("markerFound");
           });
           this.el.addEventListener("targetLost", () => {
@@ -474,6 +615,28 @@
       </svg>
     </button>
 
+    <!-- Navigasi Penomoran Lapisan Atmosfer (1-5) -->
+    <div id="atmo-nav" role="group" aria-label="Pilih Lapisan Atmosfer">
+      <button class="atmo-num-btn" type="button" data-layer="1" title="Troposfer">1</button>
+      <button class="atmo-num-btn" type="button" data-layer="2" title="Stratosfer">2</button>
+      <button class="atmo-num-btn" type="button" data-layer="3" title="Mesosfer">3</button>
+      <button class="atmo-num-btn" type="button" data-layer="4" title="Termosfer">4</button>
+      <button class="atmo-num-btn" type="button" data-layer="5" title="Eksosfer">5</button>
+      <button class="atmo-num-btn reset-btn" id="atmo-reset" type="button" title="Reset Zoom">↺</button>
+    </div>
+
+    <!-- Kartu Penjelasan Lapisan Atmosfer -->
+    <div id="atmo-card" role="region" aria-live="polite">
+      <div class="atmo-card-header">
+        <span class="atmo-badge" id="atmo-alt">0 - 12 KM</span>
+        <button class="atmo-card-close" id="atmo-close" type="button" aria-label="Tutup penjelasan">✕</button>
+      </div>
+      <h3 id="atmo-title">1. TROPOSFER</h3>
+      <p id="atmo-desc">
+        Lapisan terdalam yang paling dekat dengan permukaan Bumi. Tempat terjadinya fenomena cuaca dan iklim seperti hujan, awan, angin, dan petir.
+      </p>
+    </div>
+
     <div id="overlay"></div>
 
     <aside id="menu-panel" aria-hidden="true">
@@ -493,6 +656,10 @@
         <li>Izinkan browser memakai kamera.</li>
         <li>Arahkan kamera ke foto/marker sampai model 3D muncul.</li>
         <li>
+          Klik nomor <strong>1 - 5</strong> di bagian bawah untuk melakukan
+          <strong>Zoom-In</strong> dan melihat penjelasan tiap lapisan atmosfer.
+        </li>
+        <li>
           Geser satu jari untuk memutar model, atau cubit dua jari untuk
           memperbesar/memperkecil.
         </li>
@@ -500,10 +667,7 @@
       <button class="close-btn" id="info-close" type="button">TUTUP</button>
     </div>
 
-    <!-- AR Scene: kamera + gambar target (MindAR). Objek 3D dipanggil dari model.js -->
-    <!-- imageTargetSrc = file hasil compile gambar (sejajar dengan file ini).
-       filterMinCF makin kecil = makin halus saat diam; filterBeta makin besar = makin responsif;
-       missTolerance = jumlah frame model tetap tampil saat tracking sempat hilang. -->
+    <!-- AR Scene -->
     <div id="ar-wrap">
       <a-scene
         mindar-image="imageTargetSrc: /asset/bumi.mind; filterMinCF: 0.0001; filterBeta: 100; missTolerance: 30; warmupTolerance: 5; uiLoading: no; uiScanning: no; uiError: no;"
@@ -521,7 +685,6 @@
           position="0 2 1"
         ></a-entity>
 
-        <!-- targetIndex: urutan gambar di dalam targets.mind (0 = gambar pertama) -->
         <a-entity
           id="marker-ar"
           mindar-image-target="targetIndex: 0"
@@ -544,7 +707,6 @@
             window.innerHeight * 0.01 + "px"
           );
         }
-        // Hitung ulang SEMUANYA: wadah, canvas A-Frame, video kamera & proyeksi MindAR, ukuran model
         function kirim() {
           setVh();
           sedangKirim = true;
@@ -554,7 +716,6 @@
           window.dispatchEvent(new Event("resize"));
           sedangKirim = false;
         }
-        // Ukuran layar baru dilaporkan browser agak terlambat setelah diputar, jadi dihitung beberapa kali
         function jadwalkan() {
           timers.forEach(clearTimeout);
           timers = [100, 300, 700, 1200].map(function (ms) {
@@ -577,28 +738,17 @@
     </script>
 
     <script>
-      /* ORIENTASI dasar model terhadap gambar target:
-       'tegak'   = gambar ditempel di dinding / tampil di layar -> atas model = atas gambar, model menghadap kamera
-       'berdiri' = gambar diletakkan mendatar di meja -> model berdiri tegak lurus keluar dari gambar
-       ROT_X/Y/Z = koreksi manual (derajat), ditambahkan di atas ORIENTASI. */
       const ORIENTASI = "tegak";
       const ROT_X = 0,
         ROT_Y = 0,
         ROT_Z = 0;
 
-      /* UKURAN model (pengali di atas MODEL_CONFIG.scale milik model.js):
-       ukuran asli model diatur di model.js -> MODEL_CONFIG.scale.
-       Di sini hanya pengali tambahan tanpa perlu membuka model.js. 1 = apa adanya, 1.5 = 1,5x lebih besar, 0.7 = lebih kecil.
-       UKURAN_PORTRAIT / UKURAN_LANDSCAPE = pengali tambahan khusus saat HP berdiri / miring. */
       const UKURAN = 1;
       const UKURAN_PORTRAIT = 1,
         UKURAN_LANDSCAPE = 1;
 
-      /* ANTI-GETAR: SMOOTH 0.05..1, makin KECIL = makin halus/stabil tapi makin lambat mengikuti (1 = tanpa penghalus).
-       Filter bawaan MindAR (filterMinCF, filterBeta) ada di atribut mindar-image pada <a-scene>. */
       const SMOOTH = 0.2;
 
-      // Penghalus tambahan: entity ini mengikuti gambar target dengan interpolasi sehingga getaran kecil teredam
       AFRAME.registerComponent("smooth-follow", {
         schema: {
           target: { type: "selector" },
@@ -637,36 +787,32 @@
         },
       });
 
-      /* ZOOM TETAP DI TENGAH: model.js menaikkan Bumi (OFF) dari titik asal model, sehingga saat di-zoom (cubit)
-       pusat Bumi ikut "lari" ke atas karena skala dikalikan terhadap titik asal, bukan pusat Bumi.
-       Komponen ini menahan PUSAT model (posisi objek 'mesh') tetap di titik tengah gambar saat di-zoom/diputar.
-       PUSAT_ZOOM = false -> perilaku lama (Bumi ikut naik saat di-zoom).
-       PUSAT_NAIK = geser titik pusat itu ke atas gambar (satuan = lebar gambar), mis. 0.3 bila ORIENTASI = 'berdiri'. */
       const PUSAT_ZOOM = true;
       const PUSAT_NAIK = 0;
       AFRAME.registerComponent("pusat-zoom", {
         schema: {
           base: { type: "vec3" },
           naik: { type: "number", default: 0 },
+          focusOffset: { type: "vec3", default: { x: 0, y: 0, z: 0 } },
         },
         tick: function () {
           const o = this.el.object3D,
             mesh = this.el.getObject3D("mesh");
           if (!mesh) return;
           const b = this.data.base,
+            f = this.data.focusOffset,
             c = mesh.position,
             s = o.scale;
-          // pusat model dalam koordinat induk = posisi + rotasi*(skala*pusat); dibatalkan agar pusat tetap di titik tetap
           const v = new AFRAME.THREE.Vector3(
-            c.x * s.x,
-            c.y * s.y,
-            c.z * s.z
+            (c.x + f.x) * s.x,
+            (c.y + f.y) * s.y,
+            (c.z + f.z) * s.z
           ).applyQuaternion(o.quaternion);
           o.position.set(b.x - v.x, b.y + this.data.naik - v.y, b.z - v.z);
         },
       });
 
-      // Panggil objek 3D dari model.js (komponen buatan sendiri, atau file .glb bila ada C.src)
+      // Panggil objek 3D dari model.js
       (function () {
         const C = window.MODEL_CONFIG;
         const marker = document.getElementById("marker-ar");
@@ -677,12 +823,11 @@
           return;
         }
 
-        // Pengatur orientasi terhadap gambar target
         const pivot = document.createElement("a-entity");
         pivot.id = "pivot-model";
         const rx = (ORIENTASI === "berdiri" ? 90 : 0) + ROT_X;
         pivot.setAttribute("rotation", rx + " " + ROT_Y + " " + ROT_Z);
-        // Holder penghalus: model ikut holder ini (bukan langsung ke gambar target)
+
         const holder = document.createElement("a-entity");
         holder.id = "holder-halus";
         holder.setAttribute(
@@ -692,7 +837,6 @@
         document.querySelector("a-scene").appendChild(holder);
         holder.appendChild(pivot);
 
-        // Ukuran total = UKURAN x pengali portrait/landscape (dihitung ulang saat layar diputar)
         function terapkanUkuran() {
           const potret = window.innerHeight >= window.innerWidth;
           const k = UKURAN * (potret ? UKURAN_PORTRAIT : UKURAN_LANDSCAPE);
@@ -724,7 +868,269 @@
         pivot.appendChild(m);
       })();
 
-      // Sembunyikan loading setelah AR siap (MindAR: arReady) atau gagal (arError)
+      // Data & Logika Interaksi Penomoran Atmosfer + Zoom-In
+      (function () {
+        const ATMO_LAYERS = {
+          1: {
+            nama: "1. TROPOSFER",
+            ketinggian: "0 – 12 KM",
+            deskripsi:
+              "Lapisan terdalam yang bersentuhan langsung dengan permukaan Bumi. Tempat terjadinya seluruh fenomena cuaca dan iklim seperti awan, hujan, angin, dan petir.",
+            zoomMultiplier: 2.15,
+            rotY: 0.25,
+            rotX: 0.12,
+            focusOffset: { x: 0, y: 0.02, z: 0 },
+            keywords: ["tropos", "layer1", "lapis1", "dalam"],
+          },
+          2: {
+            nama: "2. STRATOSFER",
+            ketinggian: "12 – 50 KM",
+            deskripsi:
+              "Tempat terdapatnya Lapisan Ozon (O₃) yang menyerap sinar ultraviolet (UV) berbahaya dari Matahari. Pesawat jet komersial terbang di bagian bawah lapisan ini karena bebas cuaca buruk.",
+            zoomMultiplier: 1.9,
+            rotY: -0.35,
+            rotX: 0.15,
+            focusOffset: { x: 0, y: 0.06, z: 0 },
+            keywords: ["stratos", "ozon", "layer2", "lapis2"],
+          },
+          3: {
+            nama: "3. MESOSFER",
+            ketinggian: "50 – 85 KM",
+            deskripsi:
+              "Lapisan terdingin di atmosfer (suhu mencapai -90°C). Berfungsi sebagai pelindung Bumi yang membakar habis meteor atau batuan angkasa sebelum jatuh ke permukaan.",
+            zoomMultiplier: 1.68,
+            rotY: 0.55,
+            rotX: -0.1,
+            focusOffset: { x: 0, y: 0.1, z: 0 },
+            keywords: ["mesos", "meteor", "layer3", "lapis3"],
+          },
+          4: {
+            nama: "4. TERMOSFER (IONOSFER)",
+            ketinggian: "85 – 600 KM",
+            deskripsi:
+              "Suhu sangat tinggi akibat radiasi Matahari. Mengandung partikel bermuatan listrik (ion) yang memantulkan gelombang radio serta tempat munculnya fenomena cahaya Aurora.",
+            zoomMultiplier: 1.45,
+            rotY: -0.65,
+            rotX: 0.2,
+            focusOffset: { x: 0, y: 0.14, z: 0 },
+            keywords: ["termos", "thermos", "ionos", "aurora", "layer4", "lapis4"],
+          },
+          5: {
+            nama: "5. EKSOSFER",
+            ketinggian: "> 600 – 10.000 KM",
+            deskripsi:
+              "Lapisan terluar atmosfer yang berbatasan langsung dengan luar angkasa. Udara sangat tipis (didominasi hidrogen & helium) dan menjadi jalur orbit berbagai satelit buatan.",
+            zoomMultiplier: 1.25,
+            rotY: 0.85,
+            rotX: -0.15,
+            focusOffset: { x: 0, y: 0.18, z: 0 },
+            keywords: ["eksos", "exos", "satelit", "layer5", "lapis5", "luar"],
+          },
+        };
+
+        const buttons = document.querySelectorAll(".atmo-num-btn[data-layer]");
+        const resetBtn = document.getElementById("atmo-reset");
+        const card = document.getElementById("atmo-card");
+        const closeCardBtn = document.getElementById("atmo-close");
+        const titleEl = document.getElementById("atmo-title");
+        const altEl = document.getElementById("atmo-alt");
+        const descEl = document.getElementById("atmo-desc");
+
+        let animFrame = null;
+        let activeLayer = null;
+
+        // Bila di dalam bumi.js terdapat mesh dengan nama spesifik lapisan, sorot lapisan tsb
+        function highlightLayerMesh(modelEl, keywords) {
+          const root = modelEl.object3D;
+          if (!root) return;
+
+          if (!keywords) {
+            // Kembalikan semua material ke kondisi semula
+            root.traverse(function (node) {
+              if (node.isMesh && node.userData._origOpacity !== undefined) {
+                node.material.opacity = node.userData._origOpacity;
+                node.material.transparent = node.userData._origTransparent;
+                node.material.needsUpdate = true;
+              }
+            });
+            return;
+          }
+
+          let adaYangCocok = false;
+          root.traverse(function (node) {
+            if (node.isMesh) {
+              const nm = (
+                (node.name || "") +
+                " " +
+                (node.parent ? node.parent.name || "" : "")
+              ).toLowerCase();
+              if (
+                keywords.some(function (k) {
+                  return nm.includes(k);
+                })
+              ) {
+                adaYangCocok = true;
+              }
+            }
+          });
+
+          if (!adaYangCocok) return;
+
+          root.traverse(function (node) {
+            if (node.isMesh && node.material) {
+              if (node.userData._origOpacity === undefined) {
+                node.userData._origOpacity = node.material.opacity;
+                node.userData._origTransparent = node.material.transparent;
+              }
+              const nm = (
+                (node.name || "") +
+                " " +
+                (node.parent ? node.parent.name || "" : "")
+              ).toLowerCase();
+              const cocok = keywords.some(function (k) {
+                return nm.includes(k);
+              });
+              node.material.transparent = true;
+              node.material.opacity = cocok
+                ? node.userData._origOpacity
+                : Math.min(node.userData._origOpacity * 0.25, 0.25);
+              node.material.needsUpdate = true;
+            }
+          });
+        }
+
+        function animateToState(targetMult, targetRotX, targetRotY, targetOffset) {
+          const el = document.getElementById("model-utama");
+          if (!el || !el.object3D) return;
+          if (animFrame) cancelAnimationFrame(animFrame);
+
+          const baseScale = (window.MODEL_CONFIG && window.MODEL_CONFIG.scale) || 1;
+          const startScale = el.object3D.scale.x;
+          const endScale = baseScale * targetMult;
+
+          const startRotX = el.object3D.rotation.x;
+          const startRotY = el.object3D.rotation.y;
+
+          const pz = el.components["pusat-zoom"];
+          const startOff =
+            pz && pz.data.focusOffset
+              ? {
+                  x: pz.data.focusOffset.x,
+                  y: pz.data.focusOffset.y,
+                  z: pz.data.focusOffset.z,
+                }
+              : { x: 0, y: 0, z: 0 };
+
+          // Sinkronkan scaleFactor milik gesture-handler agar cubit manual tidak mereset zoom
+          const gh = el.components["gesture-handler"];
+          const startGhScale = gh ? gh.scaleFactor || 1 : 1;
+          const endGhScale = targetMult;
+
+          const startTime = performance.now();
+          const duration = 550;
+
+          function step(now) {
+            const t = Math.min((now - startTime) / duration, 1);
+            const ease = 1 - Math.pow(1 - t, 3); // Cubic ease-out
+
+            const curScale = startScale + (endScale - startScale) * ease;
+            el.object3D.scale.set(curScale, curScale, curScale);
+
+            if (gh) {
+              gh.scaleFactor = startGhScale + (endGhScale - startGhScale) * ease;
+            }
+
+            el.object3D.rotation.x = startRotX + (targetRotX - startRotX) * ease;
+            el.object3D.rotation.y = startRotY + (targetRotY - startRotY) * ease;
+
+            if (pz) {
+              pz.data.focusOffset = {
+                x: startOff.x + (targetOffset.x - startOff.x) * ease,
+                y: startOff.y + (targetOffset.y - startOff.y) * ease,
+                z: startOff.z + (targetOffset.z - startOff.z) * ease,
+              };
+            }
+
+            if (t < 1) {
+              animFrame = requestAnimationFrame(step);
+            } else {
+              animFrame = null;
+            }
+          }
+          animFrame = requestAnimationFrame(step);
+        }
+
+        function pilihLapisan(nomor) {
+          const data = ATMO_LAYERS[nomor];
+          if (!data) return;
+
+          // Jika nomor yang sama diklik ulang, reset zoom
+          if (activeLayer === nomor) {
+            resetZoom();
+            return;
+          }
+          activeLayer = nomor;
+
+          buttons.forEach(function (b) {
+            b.classList.toggle("active", b.getAttribute("data-layer") === String(nomor));
+          });
+          resetBtn.classList.add("visible");
+
+          // Tampilkan kartu penjelasan
+          titleEl.textContent = data.nama;
+          altEl.textContent = "KETINGGIAN: " + data.ketinggian;
+          descEl.textContent = data.deskripsi;
+          card.classList.add("show");
+
+          // Update tag atas jika sedang mendeteksi marker
+          const tag = document.getElementById("object-tag");
+          if (tag && tag.style.display === "block") {
+            tag.innerText = "🔍 FOKUS: " + data.nama;
+          }
+
+          // Jalankan animasi zoom in & highlight
+          const el = document.getElementById("model-utama");
+          if (el) highlightLayerMesh(el, data.keywords);
+          animateToState(
+            data.zoomMultiplier,
+            data.rotX,
+            data.rotY,
+            data.focusOffset
+          );
+        }
+
+        function resetZoom() {
+          activeLayer = null;
+          buttons.forEach(function (b) {
+            b.classList.remove("active");
+          });
+          resetBtn.classList.remove("visible");
+          card.classList.remove("show");
+
+          const tag = document.getElementById("object-tag");
+          if (tag && tag.style.display === "block") {
+            const nama =
+              (window.MODEL_CONFIG && window.MODEL_CONFIG.nama) || "Model";
+            tag.innerText = "🌍 DETEKSI: " + nama.toUpperCase();
+          }
+
+          const el = document.getElementById("model-utama");
+          if (el) highlightLayerMesh(el, null);
+          animateToState(1, 0, 0, { x: 0, y: 0, z: 0 });
+        }
+
+        buttons.forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            const layer = parseInt(btn.getAttribute("data-layer"), 10);
+            pilihLapisan(layer);
+          });
+        });
+
+        resetBtn.addEventListener("click", resetZoom);
+        closeCardBtn.addEventListener("click", resetZoom);
+      })();
+
+      // Sembunyikan loading setelah AR siap
       function sembunyikanLoading() {
         const l = document.getElementById("loading");
         if (l) l.style.display = "none";
@@ -779,11 +1185,12 @@
         document
           .getElementById("info-close")
           .addEventListener("click", tutupSemua);
-        document
-          .getElementById("menu-reload")
-          .addEventListener("click", function () {
+        const menuReload = document.getElementById("menu-reload");
+        if (menuReload) {
+          menuReload.addEventListener("click", function () {
             location.reload();
           });
+        }
         document.addEventListener("keydown", function (e) {
           if (e.key === "Escape") tutupSemua();
         });
@@ -810,10 +1217,7 @@
     </script>
 
     <script>
-      /* ARAH SELURUH UI MENGIKUTI ARAH HP SEBENARNYA (sensor gravitasi)
-       Berguna saat rotasi layar HP terkunci: halaman tetap portrait, tetapi navigasi (menu, info, tombol putar, label, panel)
-       ikut diputar 90°/180°/270°, dan geser jari untuk memutar objek juga disesuaikan arahnya.
-       qDeg = putaran UI searah jarum jam (0 / 90 / 180 / 270). */
+      /* ARAH SELURUH UI MENGIKUTI ARAH HP SEBENARNYA (sensor gravitasi) */
       (function () {
         const D = Math.PI / 180;
         const rot = document.createElement("div");
@@ -824,6 +1228,8 @@
           "btn-menu",
           "btn-info",
           "btn-next",
+          "atmo-nav",
+          "atmo-card",
           "overlay",
           "menu-panel",
           "info-modal",
@@ -854,15 +1260,15 @@
           const b = e.beta * D,
             g = e.gamma * D;
           const ux = -Math.cos(b) * Math.sin(g),
-            uy = Math.sin(b); // arah "atas" dunia pada bingkai perangkat
+            uy = Math.sin(b);
           const a =
             (screen.orientation && typeof screen.orientation.angle === "number"
               ? screen.orientation.angle
               : window.orientation || 0) * D;
           const px = ux * Math.cos(a) - uy * Math.sin(a),
-            py = ux * Math.sin(a) + uy * Math.cos(a); // pada bingkai halaman
-          if (Math.hypot(px, py) < 0.4) return; // HP hampir mendatar: pertahankan arah terakhir
-          const phi = Math.atan2(px, py) / D; // sudut searah jarum jam dari "atas halaman"
+            py = ux * Math.sin(a) + uy * Math.cos(a);
+          if (Math.hypot(px, py) < 0.4) return;
+          const phi = Math.atan2(px, py) / D;
           const diff = ((phi - qDeg + 540) % 360) - 180;
           if (Math.abs(diff) > 50) {
             qDeg = (((Math.round(phi / 90) * 90) % 360) + 360) % 360;
@@ -879,7 +1285,6 @@
           typeof DeviceOrientationEvent !== "undefined" &&
           typeof DeviceOrientationEvent.requestPermission === "function"
         ) {
-          // iOS: perlu izin sensor setelah ketukan pertama
           const minta = function () {
             DeviceOrientationEvent.requestPermission()
               .then(function (r) {
@@ -892,7 +1297,6 @@
           });
         } else startTilt();
 
-        // Geser jari untuk memutar objek: arahnya diputar sesuai arah HP (agar "kanan" tetap kanan menurut pengguna)
         window.addEventListener(
           "onefingermove",
           function (e) {
