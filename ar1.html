@@ -637,7 +637,7 @@
     <!-- AR Scene -->
     <div id="ar-wrap">
       <a-scene
-        mindar-image="imageTargetSrc: ./asset/bumi.mind; filterMinCF: 0.0001; filterBeta: 100; missTolerance: 30; warmupTolerance: 5; uiLoading: no; uiScanning: no; uiError: no;"
+        mindar-image="imageTargetSrc: /asset/bumi.mind; filterMinCF: 0.0001; filterBeta: 100; missTolerance: 30; warmupTolerance: 5; uiLoading: no; uiScanning: no; uiError: no;"
         device-orientation-permission-ui="enabled: false"
         vr-mode-ui="enabled: false;"
         loading-screen="enabled: false;"
@@ -1071,7 +1071,7 @@
         if (!window.MODEL_CONFIG) masalah.push("File <b>model/bumi.js</b> tidak ditemukan / tidak termuat.");
         if (masalah.length) return tampilkanError(masalah.join("<br>"));
 
-        fetch("./asset/bumi.mind", { method: "GET" })
+        fetch("/asset/bumi.mind", { method: "GET" })
           .then(function (r) {
             if (!r.ok) tampilkanError("File <b>asset/bumi.mind</b> tidak ditemukan (HTTP " + r.status + ").");
           })
