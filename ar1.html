@@ -884,8 +884,9 @@
         const descEl = document.getElementById("atmo-desc");
 
         let activeLayer = null;
-        let layerMap = null; // { 1: [mesh,...], ... }
-        let allMeshes = [];
+        let peta = null; // { items, O, R, Re }
+        let jumlahTerakhir = -1;
+        const v0 = new Map(); // visibilitas asli tiap objek
 
         function namaLengkap(node, root) {
           let n = "";
@@ -896,84 +897,170 @@
           return n.toLowerCase();
         }
 
-        // Petakan mesh ke nomor lapisan (berdasar nama; cadangan: urutan ukuran)
+        function cocokNama(nm) {
+          for (let i = 1; i <= 5; i++) {
+            if (
+              ATMO_LAYERS[i].keywords.some(function (k) {
+                return nm.includes(k);
+              })
+            )
+              return i;
+          }
+          return 0;
+        }
+
+        function bisaDirender(n) {
+          return (n.isMesh || n.isSprite || n.isLine || n.isPoints) && n.geometry;
+        }
+
+        function hitungObjek(root) {
+          let c = 0;
+          root.traverse(function (n) {
+            if (bisaDirender(n)) c++;
+          });
+          return c;
+        }
+
+        // Petakan SEMUA objek (bola lapisan, teks, label, ikon, dll) ke nomor lapisan.
+        // Layer 0 = Bumi / selalu tampil.
         function bangunPeta() {
           const el = document.getElementById("model-utama");
           if (!el || !el.object3D) return null;
           const root = el.object3D;
-          const meshes = [];
+          root.updateWorldMatrix(true, true);
+          const T = AFRAME.THREE;
+          const box = new T.Box3(),
+            size = new T.Vector3(),
+            ctr = new T.Vector3();
+          const items = [];
           root.traverse(function (n) {
-            if (n.isMesh) meshes.push(n);
+            if (!bisaDirender(n)) return;
+            box.setFromObject(n);
+            if (box.isEmpty()) return;
+            box.getSize(size);
+            box.getCenter(ctr);
+            if (!v0.has(n.uuid)) v0.set(n.uuid, n.visible);
+            items.push({
+              n: n,
+              nama: namaLengkap(n, root).trim(),
+              layer: cocokNama(namaLengkap(n, root)),
+              ext: Math.max(size.x, size.y, size.z),
+              min: Math.min(size.x, size.y, size.z),
+              c: ctr.clone(),
+              shell: false,
+            });
           });
-          if (!meshes.length) return null;
-          allMeshes = meshes;
+          jumlahTerakhir = items.length;
+          if (!items.length) return null;
 
-          const peta = { 1: [], 2: [], 3: [], 4: [], 5: [] };
-          let cocokNama = 0;
-          meshes.forEach(function (m) {
-            const nm = namaLengkap(m, root);
-            for (let i = 1; i <= 5; i++) {
-              if (
-                ATMO_LAYERS[i].keywords.some(function (k) {
-                  return nm.includes(k);
-                })
-              ) {
-                peta[i].push(m);
-                cocokNama++;
+          // Pusat bumi = pusat bola/kubus terbesar
+          const kubus = items.filter(function (it) {
+            return !it.n.isSprite && it.min >= it.ext * 0.85;
+          });
+          const dasar = (kubus.length ? kubus : items)
+            .slice()
+            .sort(function (a, b) {
+              return b.ext - a.ext;
+            })[0];
+          const O = dasar.c.clone();
+          kubus.forEach(function (it) {
+            if (it.c.distanceTo(O) <= it.ext * 0.05) it.shell = true;
+          });
+
+          const R = [0, 0, 0, 0, 0, 0]; // jari-jari tiap lapisan (indeks 1..5)
+          let Re = 0; // jari-jari bumi
+          const shells = items.filter(function (i) {
+            return i.shell;
+          });
+          const adaNama = items.some(function (i) {
+            return i.layer > 0;
+          });
+
+          if (adaNama) {
+            shells.forEach(function (i) {
+              if (i.layer > 0) R[i.layer] = Math.max(R[i.layer], i.ext / 2);
+            });
+            let minR = Infinity;
+            for (let i = 1; i <= 5; i++) if (R[i] > 0) minR = Math.min(minR, R[i]);
+            shells.forEach(function (i) {
+              if (i.layer === 0 && i.ext / 2 < minR) Re = Math.max(Re, i.ext / 2);
+            });
+          } else {
+            // Cadangan: kelompokkan bola menurut ukuran, 5 terluar = lapisan 1..5
+            const urut = shells.slice().sort(function (a, b) {
+              return a.ext - b.ext;
+            });
+            const grup = [];
+            urut.forEach(function (u) {
+              const g = grup[grup.length - 1];
+              if (g && Math.abs(u.ext - g.ext) <= g.ext * 0.01) g.items.push(u);
+              else grup.push({ ext: u.ext, items: [u] });
+            });
+            if (grup.length < 5) return null;
+            const lima = grup.slice(-5);
+            for (let i = 0; i < 5; i++) {
+              lima[i].items.forEach(function (u) {
+                u.layer = i + 1;
+              });
+              R[i + 1] = lima[i].ext / 2;
+            }
+            if (grup.length > 5) Re = grup[grup.length - 6].ext / 2;
+          }
+
+          // Objek lain (teks, label, ikon) yang belum bernama: tentukan dari jaraknya ke pusat bumi
+          const adaR = [];
+          for (let i = 1; i <= 5; i++) if (R[i] > 0) adaR.push(i);
+          items.forEach(function (it) {
+            if (it.layer > 0 || it.shell || !adaR.length) return;
+            const d = it.c.distanceTo(O);
+            if (d <= Re) return;
+            let pilih = adaR[adaR.length - 1];
+            for (let k = 0; k < adaR.length; k++) {
+              if (d <= R[adaR[k]] * 1.02) {
+                pilih = adaR[k];
                 break;
               }
             }
+            it.layer = pilih;
           });
-          if (cocokNama > 0) return peta;
 
-          // Cadangan: urutkan mesh dari kecil ke besar, 5 terluar = lapisan 1..5
-          const T = AFRAME.THREE;
-          const box = new T.Box3(),
-            size = new T.Vector3();
-          const ukur = meshes
-            .map(function (m) {
-              box.setFromObject(m);
-              box.getSize(size);
-              return { m: m, r: Math.max(size.x, size.y, size.z) };
+          console.info(
+            "[Atmosfer] pemetaan objek (0 = Bumi/selalu tampil):",
+            items.map(function (i) {
+              return (i.nama || "(tanpa nama)") + " -> " + i.layer;
             })
-            .sort(function (a, b) {
-              return a.r - b.r;
-            });
-          const grup = [];
-          ukur.forEach(function (u) {
-            const g = grup[grup.length - 1];
-            if (g && Math.abs(u.r - g.r) <= g.r * 0.01) g.items.push(u.m);
-            else grup.push({ r: u.r, items: [u.m] });
-          });
-          if (grup.length < 5) return null;
-          const lima = grup.slice(-5);
-          for (let i = 0; i < 5; i++) peta[i + 1] = lima[i].items;
-          return peta;
+          );
+          return { items: items, O: O, R: R, Re: Re };
         }
 
-        function tampilkanSemua() {
-          allMeshes.forEach(function (m) {
-            m.visible = true;
+        function terapkan(nomor) {
+          if (!peta) return;
+          peta.items.forEach(function (it) {
+            const asli = v0.has(it.n.uuid) ? v0.get(it.n.uuid) : true;
+            it.n.visible =
+              nomor == null || it.layer === 0 || it.layer === nomor ? asli : false;
           });
         }
 
-        // Sembunyikan semua lapisan kecuali nomor terpilih
         function hanyaLapisan(nomor) {
-          if (!layerMap) layerMap = bangunPeta();
-          if (!layerMap) {
+          if (!peta) peta = bangunPeta();
+          if (!peta) {
             console.warn(
-              "Mesh lapisan atmosfer tidak ditemukan di model. Beri nama mesh sesuai lapisan (mis. troposfer, stratosfer, ...)."
+              "Objek lapisan atmosfer tidak ditemukan di model. Beri nama mesh sesuai lapisan (mis. troposfer, stratosfer, ...)."
             );
             return;
           }
-          tampilkanSemua();
-          for (let i = 1; i <= 5; i++) {
-            if (i === nomor) continue;
-            layerMap[i].forEach(function (m) {
-              m.visible = false;
-            });
-          }
+          terapkan(nomor);
         }
+
+        // Teks/label bisa muncul belakangan (font dimuat async) -> terapkan ulang berkala
+        setInterval(function () {
+          if (activeLayer == null) return;
+          const el = document.getElementById("model-utama");
+          if (!el || !el.object3D) return;
+          if (hitungObjek(el.object3D) !== jumlahTerakhir) peta = bangunPeta();
+          terapkan(activeLayer);
+        }, 400);
 
         function pilihLapisan(nomor) {
           const data = ATMO_LAYERS[nomor];
@@ -1018,7 +1105,7 @@
               (window.MODEL_CONFIG && window.MODEL_CONFIG.nama) || "Model";
             tag.innerText = "🌍 DETEKSI: " + nama.toUpperCase();
           }
-          tampilkanSemua();
+          terapkan(null);
         }
 
         buttons.forEach(function (btn) {
@@ -1071,7 +1158,7 @@
         if (!window.MODEL_CONFIG) masalah.push("File <b>model/bumi.js</b> tidak ditemukan / tidak termuat.");
         if (masalah.length) return tampilkanError(masalah.join("<br>"));
 
-        fetch("/asset/bumi.mind", { method: "GET" })
+        fetch("./asset/bumi.mind", { method: "GET" })
           .then(function (r) {
             if (!r.ok) tampilkanError("File <b>asset/bumi.mind</b> tidak ditemukan (HTTP " + r.status + ").");
           })
