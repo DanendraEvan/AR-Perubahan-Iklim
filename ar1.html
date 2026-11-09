@@ -180,10 +180,6 @@
         font-weight: bold;
         line-height: 1;
       }
-      #btn-next {
-        bottom: calc(30px + env(safe-area-inset-bottom, 0px));
-        left: 20px;
-      }
 
       /* === PENOMORAN LAPISAN ATMOSFER === */
       #atmo-nav {
@@ -234,10 +230,6 @@
         border-color: #ffb347;
         color: #ffb347;
         font-size: 16px;
-        display: none;
-      }
-      .atmo-num-btn.reset-btn.visible {
-        display: grid;
       }
       .atmo-num-btn.reset-btn:hover {
         background: rgba(255, 179, 71, 0.22);
@@ -459,9 +451,6 @@
       #ui-rot.land #btn-info {
         top: calc(10px + env(safe-area-inset-top, 0px));
       }
-      #ui-rot.land #btn-next {
-        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-      }
       #ui-rot.land #atmo-nav {
         bottom: calc(12px + env(safe-area-inset-bottom, 0px));
         padding: 4px 8px;
@@ -486,8 +475,7 @@
         padding: 16px;
       }
 
-      #btn-menu,
-      #btn-next {
+      #btn-menu {
         left: calc(20px + env(safe-area-inset-left, 0px));
       }
       #btn-info {
@@ -505,9 +493,6 @@
         #btn-menu,
         #btn-info {
           top: calc(10px + env(safe-area-inset-top, 0px));
-        }
-        #btn-next {
-          bottom: calc(12px + env(safe-area-inset-bottom, 0px));
         }
         #atmo-nav {
           bottom: calc(12px + env(safe-area-inset-bottom, 0px));
@@ -596,25 +581,6 @@
     >
       i
     </button>
-    <button
-      class="ui-btn"
-      id="btn-next"
-      type="button"
-      aria-label="Putar model ke kanan"
-    >
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.6"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M5 12h14M13 6l6 6-6 6" />
-      </svg>
-    </button>
-
     <!-- Navigasi Penomoran Lapisan Atmosfer (1-5) -->
     <div id="atmo-nav" role="group" aria-label="Pilih Lapisan Atmosfer">
       <button class="atmo-num-btn" type="button" data-layer="1" title="Troposfer">1</button>
@@ -656,9 +622,9 @@
         <li>Izinkan browser memakai kamera.</li>
         <li>Arahkan kamera ke foto/marker sampai model 3D muncul.</li>
         <li>
-          Klik nomor <strong>1 - 5</strong> di bagian bawah untuk
-          <strong>menyembunyikan lapisan lain</strong>, melakukan
-          <strong>Zoom-In</strong>, dan melihat penjelasan lapisan tersebut.
+          Klik nomor <strong>1 - 5</strong> di bagian bawah untuk menampilkan
+          <strong>satu lapisan atmosfer saja</strong> beserta penjelasannya.
+          Klik nomor yang sama atau tombol ↺ untuk menampilkan semua lapisan.
         </li>
         <li>
           Geser satu jari untuk memutar model, atau cubit dua jari untuk
@@ -671,7 +637,7 @@
     <!-- AR Scene -->
     <div id="ar-wrap">
       <a-scene
-        mindar-image="imageTargetSrc: /asset/bumi.mind; filterMinCF: 0.0001; filterBeta: 100; missTolerance: 30; warmupTolerance: 5; uiLoading: no; uiScanning: no; uiError: no;"
+        mindar-image="imageTargetSrc: ./asset/bumi.mind; filterMinCF: 0.0001; filterBeta: 100; missTolerance: 30; warmupTolerance: 5; uiLoading: no; uiScanning: no; uiError: no;"
         device-orientation-permission-ui="enabled: false"
         vr-mode-ui="enabled: false;"
         loading-screen="enabled: false;"
@@ -869,7 +835,7 @@
         pivot.appendChild(m);
       })();
 
-      // Data & Logika Interaksi Penomoran Atmosfer + Hide Atmosfer Lain + Zoom-In
+      // Data & Logika Interaksi Penomoran Atmosfer (HIDE lapisan lain, model 3D tidak diubah)
       (function () {
         const ATMO_LAYERS = {
           1: {
@@ -877,55 +843,35 @@
             ketinggian: "0 – 12 KM",
             deskripsi:
               "Lapisan terdalam yang bersentuhan langsung dengan permukaan Bumi. Tempat terjadinya seluruh fenomena cuaca dan iklim seperti awan, hujan, angin, dan petir.",
-            zoomMultiplier: 2.15,
-            rotY: 0.25,
-            rotX: 0.12,
-            focusOffset: { x: 0, y: 0.02, z: 0 },
-            keywords: ["tropos", "layer1", "lapis1", "atmo1", "atm1"],
+            keywords: ["tropos", "layer1", "lapis1", "dalam"],
           },
           2: {
             nama: "2. STRATOSFER",
             ketinggian: "12 – 50 KM",
             deskripsi:
               "Tempat terdapatnya Lapisan Ozon (O₃) yang menyerap sinar ultraviolet (UV) berbahaya dari Matahari. Pesawat jet komersial terbang di bagian bawah lapisan ini karena bebas cuaca buruk.",
-            zoomMultiplier: 1.9,
-            rotY: -0.35,
-            rotX: 0.15,
-            focusOffset: { x: 0, y: 0.06, z: 0 },
-            keywords: ["stratos", "ozon", "layer2", "lapis2", "atmo2", "atm2"],
+            keywords: ["stratos", "ozon", "layer2", "lapis2"],
           },
           3: {
             nama: "3. MESOSFER",
             ketinggian: "50 – 85 KM",
             deskripsi:
               "Lapisan terdingin di atmosfer (suhu mencapai -90°C). Berfungsi sebagai pelindung Bumi yang membakar habis meteor atau batuan angkasa sebelum jatuh ke permukaan.",
-            zoomMultiplier: 1.68,
-            rotY: 0.55,
-            rotX: -0.1,
-            focusOffset: { x: 0, y: 0.1, z: 0 },
-            keywords: ["mesos", "meteor", "layer3", "lapis3", "atmo3", "atm3"],
+            keywords: ["mesos", "meteor", "layer3", "lapis3"],
           },
           4: {
             nama: "4. TERMOSFER (IONOSFER)",
             ketinggian: "85 – 600 KM",
             deskripsi:
               "Suhu sangat tinggi akibat radiasi Matahari. Mengandung partikel bermuatan listrik (ion) yang memantulkan gelombang radio serta tempat munculnya fenomena cahaya Aurora.",
-            zoomMultiplier: 1.45,
-            rotY: -0.65,
-            rotX: 0.2,
-            focusOffset: { x: 0, y: 0.14, z: 0 },
-            keywords: ["termos", "thermos", "ionos", "aurora", "layer4", "lapis4", "atmo4", "atm4"],
+            keywords: ["termos", "thermos", "ionos", "aurora", "layer4", "lapis4"],
           },
           5: {
             nama: "5. EKSOSFER",
             ketinggian: "> 600 – 10.000 KM",
             deskripsi:
               "Lapisan terluar atmosfer yang berbatasan langsung dengan luar angkasa. Udara sangat tipis (didominasi hidrogen & helium) dan menjadi jalur orbit berbagai satelit buatan.",
-            zoomMultiplier: 1.25,
-            rotY: 0.85,
-            rotX: -0.15,
-            focusOffset: { x: 0, y: 0.18, z: 0 },
-            keywords: ["eksos", "exos", "satelit", "layer5", "lapis5", "atmo5", "atm5"],
+            keywords: ["eksos", "exos", "satelit", "layer5", "lapis5", "luar"],
           },
         };
 
@@ -937,204 +883,105 @@
         const altEl = document.getElementById("atmo-alt");
         const descEl = document.getElementById("atmo-desc");
 
-        let animFrame = null;
         let activeLayer = null;
+        let layerMap = null; // { 1: [mesh,...], ... }
+        let allMeshes = [];
 
-        /**
-         * Menyembunyikan (hide) lapisan atmosfer selain nomor yang diklik
-         * tanpa mengubah struktur 3D model.
-         */
-        function isolateLayerMesh(modelEl, nomor) {
-          const root = modelEl.getObject3D("mesh") || modelEl.object3D;
-          if (!root) return;
-
-          // Simpan state visible awal semua node pada pemanggilan pertama
-          root.traverse(function (node) {
-            if (node.userData._origVisible === undefined) {
-              node.userData._origVisible = node.visible;
-            }
-          });
-
-          // Jika di-reset (nomor === null), tampilkan kembali seluruh bagian atmosfer
-          if (!nomor) {
-            root.traverse(function (node) {
-              if (node.userData._origVisible !== undefined) {
-                node.visible = node.userData._origVisible;
-              }
-            });
-            return;
+        function namaLengkap(node, root) {
+          let n = "";
+          while (node && node !== root) {
+            n += " " + (node.name || "");
+            node = node.parent;
           }
-
-          // Daftar semua kata kunci lapisan atmosfer (1 - 5)
-          const allLayerKeywords = [];
-          Object.keys(ATMO_LAYERS).forEach(function (k) {
-            allLayerKeywords.push.apply(allLayerKeywords, ATMO_LAYERS[k].keywords);
-          });
-          const targetKeywords = ATMO_LAYERS[nomor].keywords;
-
-          // 1. Cek apakah mesh/group di bumi.js memiliki penamaan sesuai lapisan
-          let punyaNamaLapisan = false;
-          root.traverse(function (node) {
-            const nm = (node.name || "").toLowerCase();
-            if (
-              nm &&
-              allLayerKeywords.some(function (kw) {
-                return nm.includes(kw);
-              })
-            ) {
-              punyaNamaLapisan = true;
-            }
-          });
-
-          if (punyaNamaLapisan) {
-            // Sembunyikan bagian yang punya nama lapisan lain, biarkan lapisan terpilih tetap tampil
-            root.traverse(function (node) {
-              const nm = (node.name || "").toLowerCase();
-              if (!nm) return;
-              const adalahBagianAtmosfer = allLayerKeywords.some(function (kw) {
-                return nm.includes(kw);
-              });
-              if (adalahBagianAtmosfer) {
-                const adalahTarget = targetKeywords.some(function (kw) {
-                  return nm.includes(kw);
-                });
-                node.visible = adalahTarget;
-              }
-            });
-            return;
-          }
-
-          // 2. Jika tidak ada nama di bumi.js, deteksi otomatis dari jari-jari Sphere (bola berlapis)
-          const daftarMesh = [];
-          root.traverse(function (node) {
-            if (node.isMesh && node.geometry) {
-              if (!node.geometry.boundingSphere) {
-                node.geometry.computeBoundingSphere();
-              }
-              const r =
-                (node.geometry.parameters && node.geometry.parameters.radius) ||
-                (node.geometry.boundingSphere
-                  ? node.geometry.boundingSphere.radius
-                  : 0);
-              daftarMesh.push({
-                node: node,
-                radius: r * (node.scale ? node.scale.x : 1),
-              });
-            }
-          });
-
-          //kelompokkan berdasarkan radius unik (toleransi 0.005) dari dalam ke luar
-          daftarMesh.sort(function (a, b) {
-            return a.radius - b.radius;
-          });
-
-          const grupRadius = [];
-          daftarMesh.forEach(function (item) {
-            if (item.radius <= 0) return;
-            const grupAda = grupRadius.find(function (g) {
-              return Math.abs(g.radius - item.radius) < 0.005;
-            });
-            if (grupAda) {
-              grupAda.nodes.push(item.node);
-            } else {
-              grupRadius.push({ radius: item.radius, nodes: [item.node] });
-            }
-          });
-
-          // Jika terdapat minimal 5 grup bola berlapis:
-          // - Bila >= 6 grup: indeks 0 = Bola Bumi (tetap tampil), indeks 1..5 = Atmosfer 1..5
-          // - Bila == 5 grup: indeks 0..4 = Atmosfer 1..5
-          if (grupRadius.length >= 5) {
-            const adaBolaBumi = grupRadius.length >= 6;
-            const startIdx = adaBolaBumi ? 1 : 0;
-            const targetIdx = startIdx + (nomor - 1);
-
-            for (let i = startIdx; i < startIdx + 5 && i < grupRadius.length; i++) {
-              const tampilkan = i === targetIdx;
-              grupRadius[i].nodes.forEach(function (n) {
-                n.visible = tampilkan;
-              });
-            }
-            return;
-          }
-
-          // 3. Fallback urutan mesh langsung jika bukan geometri bola standar
-          if (daftarMesh.length >= 5) {
-            const startIdx = daftarMesh.length >= 6 ? 1 : 0;
-            const targetIdx = startIdx + (nomor - 1);
-            for (let i = startIdx; i < startIdx + 5 && i < daftarMesh.length; i++) {
-              daftarMesh[i].node.visible = i === targetIdx;
-            }
-          }
+          return n.toLowerCase();
         }
 
-        function animateToState(targetMult, targetRotX, targetRotY, targetOffset) {
+        // Petakan mesh ke nomor lapisan (berdasar nama; cadangan: urutan ukuran)
+        function bangunPeta() {
           const el = document.getElementById("model-utama");
-          if (!el || !el.object3D) return;
-          if (animFrame) cancelAnimationFrame(animFrame);
+          if (!el || !el.object3D) return null;
+          const root = el.object3D;
+          const meshes = [];
+          root.traverse(function (n) {
+            if (n.isMesh) meshes.push(n);
+          });
+          if (!meshes.length) return null;
+          allMeshes = meshes;
 
-          const baseScale = (window.MODEL_CONFIG && window.MODEL_CONFIG.scale) || 1;
-          const startScale = el.object3D.scale.x;
-          const endScale = baseScale * targetMult;
-
-          const startRotX = el.object3D.rotation.x;
-          const startRotY = el.object3D.rotation.y;
-
-          const pz = el.components["pusat-zoom"];
-          const startOff =
-            pz && pz.data.focusOffset
-              ? {
-                  x: pz.data.focusOffset.x,
-                  y: pz.data.focusOffset.y,
-                  z: pz.data.focusOffset.z,
-                }
-              : { x: 0, y: 0, z: 0 };
-
-          const gh = el.components["gesture-handler"];
-          const startGhScale = gh ? gh.scaleFactor || 1 : 1;
-          const endGhScale = targetMult;
-
-          const startTime = performance.now();
-          const duration = 550;
-
-          function step(now) {
-            const t = Math.min((now - startTime) / duration, 1);
-            const ease = 1 - Math.pow(1 - t, 3);
-
-            const curScale = startScale + (endScale - startScale) * ease;
-            el.object3D.scale.set(curScale, curScale, curScale);
-
-            if (gh) {
-              gh.scaleFactor = startGhScale + (endGhScale - startGhScale) * ease;
+          const peta = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+          let cocokNama = 0;
+          meshes.forEach(function (m) {
+            const nm = namaLengkap(m, root);
+            for (let i = 1; i <= 5; i++) {
+              if (
+                ATMO_LAYERS[i].keywords.some(function (k) {
+                  return nm.includes(k);
+                })
+              ) {
+                peta[i].push(m);
+                cocokNama++;
+                break;
+              }
             }
+          });
+          if (cocokNama > 0) return peta;
 
-            el.object3D.rotation.x = startRotX + (targetRotX - startRotX) * ease;
-            el.object3D.rotation.y = startRotY + (targetRotY - startRotY) * ease;
+          // Cadangan: urutkan mesh dari kecil ke besar, 5 terluar = lapisan 1..5
+          const T = AFRAME.THREE;
+          const box = new T.Box3(),
+            size = new T.Vector3();
+          const ukur = meshes
+            .map(function (m) {
+              box.setFromObject(m);
+              box.getSize(size);
+              return { m: m, r: Math.max(size.x, size.y, size.z) };
+            })
+            .sort(function (a, b) {
+              return a.r - b.r;
+            });
+          const grup = [];
+          ukur.forEach(function (u) {
+            const g = grup[grup.length - 1];
+            if (g && Math.abs(u.r - g.r) <= g.r * 0.01) g.items.push(u.m);
+            else grup.push({ r: u.r, items: [u.m] });
+          });
+          if (grup.length < 5) return null;
+          const lima = grup.slice(-5);
+          for (let i = 0; i < 5; i++) peta[i + 1] = lima[i].items;
+          return peta;
+        }
 
-            if (pz) {
-              pz.data.focusOffset = {
-                x: startOff.x + (targetOffset.x - startOff.x) * ease,
-                y: startOff.y + (targetOffset.y - startOff.y) * ease,
-                z: startOff.z + (targetOffset.z - startOff.z) * ease,
-              };
-            }
+        function tampilkanSemua() {
+          allMeshes.forEach(function (m) {
+            m.visible = true;
+          });
+        }
 
-            if (t < 1) {
-              animFrame = requestAnimationFrame(step);
-            } else {
-              animFrame = null;
-            }
+        // Sembunyikan semua lapisan kecuali nomor terpilih
+        function hanyaLapisan(nomor) {
+          if (!layerMap) layerMap = bangunPeta();
+          if (!layerMap) {
+            console.warn(
+              "Mesh lapisan atmosfer tidak ditemukan di model. Beri nama mesh sesuai lapisan (mis. troposfer, stratosfer, ...)."
+            );
+            return;
           }
-          animFrame = requestAnimationFrame(step);
+          tampilkanSemua();
+          for (let i = 1; i <= 5; i++) {
+            if (i === nomor) continue;
+            layerMap[i].forEach(function (m) {
+              m.visible = false;
+            });
+          }
         }
 
         function pilihLapisan(nomor) {
           const data = ATMO_LAYERS[nomor];
           if (!data) return;
 
-          // Jika tombol nomor yang sedang aktif diklik lagi -> Reset (tampilkan semua kembali)
+          // Klik nomor yang sama lagi -> tampilkan semua lapisan
           if (activeLayer === nomor) {
-            resetZoom();
+            resetLapisan();
             return;
           }
           activeLayer = nomor;
@@ -1144,7 +991,6 @@
           });
           resetBtn.classList.add("visible");
 
-          // Tampilkan kartu penjelasan
           titleEl.textContent = data.nama;
           altEl.textContent = "KETINGGIAN: " + data.ketinggian;
           descEl.textContent = data.deskripsi;
@@ -1155,18 +1001,10 @@
             tag.innerText = "🔍 FOKUS: " + data.nama;
           }
 
-          // Sembunyikan (hide) lapisan atmosfer lainnya & Zoom-In ke lapisan ini
-          const el = document.getElementById("model-utama");
-          if (el) isolateLayerMesh(el, nomor);
-          animateToState(
-            data.zoomMultiplier,
-            data.rotX,
-            data.rotY,
-            data.focusOffset
-          );
+          hanyaLapisan(nomor);
         }
 
-        function resetZoom() {
+        function resetLapisan() {
           activeLayer = null;
           buttons.forEach(function (b) {
             b.classList.remove("active");
@@ -1180,22 +1018,17 @@
               (window.MODEL_CONFIG && window.MODEL_CONFIG.nama) || "Model";
             tag.innerText = "🌍 DETEKSI: " + nama.toUpperCase();
           }
-
-          // Tampilkan kembali seluruh lapisan atmosfer
-          const el = document.getElementById("model-utama");
-          if (el) isolateLayerMesh(el, null);
-          animateToState(1, 0, 0, { x: 0, y: 0, z: 0 });
+          tampilkanSemua();
         }
 
         buttons.forEach(function (btn) {
           btn.addEventListener("click", function () {
-            const layer = parseInt(btn.getAttribute("data-layer"), 10);
-            pilihLapisan(layer);
+            pilihLapisan(parseInt(btn.getAttribute("data-layer"), 10));
           });
         });
 
-        resetBtn.addEventListener("click", resetZoom);
-        closeCardBtn.addEventListener("click", resetZoom);
+        resetBtn.addEventListener("click", resetLapisan);
+        closeCardBtn.addEventListener("click", resetLapisan);
       })();
 
       // Sembunyikan loading setelah AR siap
@@ -1262,25 +1095,6 @@
         document.addEventListener("keydown", function (e) {
           if (e.key === "Escape") tutupSemua();
         });
-
-        // Putar model 45° ke kanan (halus)
-        let frame = null;
-        document
-          .getElementById("btn-next")
-          .addEventListener("click", function () {
-            const el = document.getElementById("model-utama");
-            if (!el || !el.object3D) return;
-            if (frame) cancelAnimationFrame(frame);
-            const dari = el.object3D.rotation.y,
-              ke = dari + Math.PI / 4,
-              mulai = performance.now();
-            (function langkah(now) {
-              const t = Math.min((now - mulai) / 300, 1);
-              el.object3D.rotation.y =
-                dari + (ke - dari) * (1 - Math.pow(1 - t, 3));
-              frame = t < 1 ? requestAnimationFrame(langkah) : null;
-            })(mulai);
-          });
       })();
     </script>
 
@@ -1295,7 +1109,6 @@
           "gui-container",
           "btn-menu",
           "btn-info",
-          "btn-next",
           "atmo-nav",
           "atmo-card",
           "overlay",
