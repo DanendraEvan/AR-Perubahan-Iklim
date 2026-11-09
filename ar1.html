@@ -1031,25 +1031,62 @@
         closeCardBtn.addEventListener("click", resetLapisan);
       })();
 
-      // Sembunyikan loading setelah AR siap
+      // Loading + diagnosa penyebab layar hitam
+      let arGagal = false;
+      function tampilkanError(pesan) {
+        arGagal = true;
+        const l = document.getElementById("loading");
+        if (l) {
+          l.style.display = "flex";
+          l.style.fontSize = "14px";
+          l.style.letterSpacing = "1px";
+          l.style.lineHeight = "1.6";
+          l.innerHTML = "⚠️ " + pesan;
+          l.classList.add("error");
+        }
+      }
       function sembunyikanLoading() {
+        if (arGagal) return;
         const l = document.getElementById("loading");
         if (l) l.style.display = "none";
       }
       const sceneEl = document.querySelector("a-scene");
       sceneEl.addEventListener("arReady", sembunyikanLoading);
       sceneEl.addEventListener("arError", function () {
-        const l = document.getElementById("loading");
-        if (l) {
-          l.textContent =
-            "Kamera atau targets.mind gagal dimuat. Pakai HTTPS/localhost, izinkan kamera, dan pastikan targets.mind sejajar dengan file ini.";
-          l.style.fontSize = "14px";
-          l.style.letterSpacing = "1px";
-        }
+        tampilkanError(
+          "Kamera atau file bumi.mind gagal dimuat.<br>Izinkan kamera, buka lewat HTTPS/localhost, dan pastikan file <b>asset/bumi.mind</b> ada."
+        );
       });
       sceneEl.addEventListener("loaded", function () {
         setTimeout(sembunyikanLoading, 8000);
       });
+
+      (function () {
+        const masalah = [];
+        if (typeof AFRAME === "undefined") masalah.push("A-Frame gagal dimuat (cek internet).");
+        if (!window.isSecureContext)
+          masalah.push("Halaman harus dibuka lewat <b>HTTPS</b> atau <b>localhost</b> agar kamera bisa dipakai (bukan file:// atau http://IP).");
+        else if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+          masalah.push("Browser tidak mendukung akses kamera.");
+        if (!window.MODEL_CONFIG) masalah.push("File <b>model/bumi.js</b> tidak ditemukan / tidak termuat.");
+        if (masalah.length) return tampilkanError(masalah.join("<br>"));
+
+        fetch("./asset/bumi.mind", { method: "GET" })
+          .then(function (r) {
+            if (!r.ok) tampilkanError("File <b>asset/bumi.mind</b> tidak ditemukan (HTTP " + r.status + ").");
+          })
+          .catch(function () {
+            tampilkanError("File <b>asset/bumi.mind</b> tidak bisa diakses.");
+          });
+
+        if (window.MODEL_CONFIG && window.MODEL_CONFIG.src) {
+          fetch(window.MODEL_CONFIG.src, { method: "HEAD" })
+            .then(function (r) {
+              if (!r.ok) tampilkanError("File model 3D <b>" + window.MODEL_CONFIG.src + "</b> tidak ditemukan.");
+            })
+            .catch(function () {});
+        }
+      })();
 
       // Menu, info, dan tombol putar
       (function () {
