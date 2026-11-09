@@ -622,7 +622,7 @@
       <button class="atmo-num-btn" type="button" data-layer="3" title="Mesosfer">3</button>
       <button class="atmo-num-btn" type="button" data-layer="4" title="Termosfer">4</button>
       <button class="atmo-num-btn" type="button" data-layer="5" title="Eksosfer">5</button>
-      <button class="atmo-num-btn reset-btn" id="atmo-reset" type="button" title="Reset Zoom">↺</button>
+      <button class="atmo-num-btn reset-btn" id="atmo-reset" type="button" title="Tampilkan Semua Lapisan">↺</button>
     </div>
 
     <!-- Kartu Penjelasan Lapisan Atmosfer -->
@@ -656,8 +656,9 @@
         <li>Izinkan browser memakai kamera.</li>
         <li>Arahkan kamera ke foto/marker sampai model 3D muncul.</li>
         <li>
-          Klik nomor <strong>1 - 5</strong> di bagian bawah untuk melakukan
-          <strong>Zoom-In</strong> dan melihat penjelasan tiap lapisan atmosfer.
+          Klik nomor <strong>1 - 5</strong> di bagian bawah untuk
+          <strong>menyembunyikan lapisan lain</strong>, melakukan
+          <strong>Zoom-In</strong>, dan melihat penjelasan lapisan tersebut.
         </li>
         <li>
           Geser satu jari untuk memutar model, atau cubit dua jari untuk
@@ -868,7 +869,7 @@
         pivot.appendChild(m);
       })();
 
-      // Data & Logika Interaksi Penomoran Atmosfer + Zoom-In
+      // Data & Logika Interaksi Penomoran Atmosfer + Hide Atmosfer Lain + Zoom-In
       (function () {
         const ATMO_LAYERS = {
           1: {
@@ -880,7 +881,7 @@
             rotY: 0.25,
             rotX: 0.12,
             focusOffset: { x: 0, y: 0.02, z: 0 },
-            keywords: ["tropos", "layer1", "lapis1", "dalam"],
+            keywords: ["tropos", "layer1", "lapis1", "atmo1", "atm1"],
           },
           2: {
             nama: "2. STRATOSFER",
@@ -891,7 +892,7 @@
             rotY: -0.35,
             rotX: 0.15,
             focusOffset: { x: 0, y: 0.06, z: 0 },
-            keywords: ["stratos", "ozon", "layer2", "lapis2"],
+            keywords: ["stratos", "ozon", "layer2", "lapis2", "atmo2", "atm2"],
           },
           3: {
             nama: "3. MESOSFER",
@@ -902,7 +903,7 @@
             rotY: 0.55,
             rotX: -0.1,
             focusOffset: { x: 0, y: 0.1, z: 0 },
-            keywords: ["mesos", "meteor", "layer3", "lapis3"],
+            keywords: ["mesos", "meteor", "layer3", "lapis3", "atmo3", "atm3"],
           },
           4: {
             nama: "4. TERMOSFER (IONOSFER)",
@@ -913,7 +914,7 @@
             rotY: -0.65,
             rotX: 0.2,
             focusOffset: { x: 0, y: 0.14, z: 0 },
-            keywords: ["termos", "thermos", "ionos", "aurora", "layer4", "lapis4"],
+            keywords: ["termos", "thermos", "ionos", "aurora", "layer4", "lapis4", "atmo4", "atm4"],
           },
           5: {
             nama: "5. EKSOSFER",
@@ -924,7 +925,7 @@
             rotY: 0.85,
             rotX: -0.15,
             focusOffset: { x: 0, y: 0.18, z: 0 },
-            keywords: ["eksos", "exos", "satelit", "layer5", "lapis5", "luar"],
+            keywords: ["eksos", "exos", "satelit", "layer5", "lapis5", "atmo5", "atm5"],
           },
         };
 
@@ -939,64 +940,132 @@
         let animFrame = null;
         let activeLayer = null;
 
-        // Bila di dalam bumi.js terdapat mesh dengan nama spesifik lapisan, sorot lapisan tsb
-        function highlightLayerMesh(modelEl, keywords) {
-          const root = modelEl.object3D;
+        /**
+         * Menyembunyikan (hide) lapisan atmosfer selain nomor yang diklik
+         * tanpa mengubah struktur 3D model.
+         */
+        function isolateLayerMesh(modelEl, nomor) {
+          const root = modelEl.getObject3D("mesh") || modelEl.object3D;
           if (!root) return;
 
-          if (!keywords) {
-            // Kembalikan semua material ke kondisi semula
+          // Simpan state visible awal semua node pada pemanggilan pertama
+          root.traverse(function (node) {
+            if (node.userData._origVisible === undefined) {
+              node.userData._origVisible = node.visible;
+            }
+          });
+
+          // Jika di-reset (nomor === null), tampilkan kembali seluruh bagian atmosfer
+          if (!nomor) {
             root.traverse(function (node) {
-              if (node.isMesh && node.userData._origOpacity !== undefined) {
-                node.material.opacity = node.userData._origOpacity;
-                node.material.transparent = node.userData._origTransparent;
-                node.material.needsUpdate = true;
+              if (node.userData._origVisible !== undefined) {
+                node.visible = node.userData._origVisible;
               }
             });
             return;
           }
 
-          let adaYangCocok = false;
+          // Daftar semua kata kunci lapisan atmosfer (1 - 5)
+          const allLayerKeywords = [];
+          Object.keys(ATMO_LAYERS).forEach(function (k) {
+            allLayerKeywords.push.apply(allLayerKeywords, ATMO_LAYERS[k].keywords);
+          });
+          const targetKeywords = ATMO_LAYERS[nomor].keywords;
+
+          // 1. Cek apakah mesh/group di bumi.js memiliki penamaan sesuai lapisan
+          let punyaNamaLapisan = false;
           root.traverse(function (node) {
-            if (node.isMesh) {
-              const nm = (
-                (node.name || "") +
-                " " +
-                (node.parent ? node.parent.name || "" : "")
-              ).toLowerCase();
-              if (
-                keywords.some(function (k) {
-                  return nm.includes(k);
-                })
-              ) {
-                adaYangCocok = true;
-              }
+            const nm = (node.name || "").toLowerCase();
+            if (
+              nm &&
+              allLayerKeywords.some(function (kw) {
+                return nm.includes(kw);
+              })
+            ) {
+              punyaNamaLapisan = true;
             }
           });
 
-          if (!adaYangCocok) return;
-
-          root.traverse(function (node) {
-            if (node.isMesh && node.material) {
-              if (node.userData._origOpacity === undefined) {
-                node.userData._origOpacity = node.material.opacity;
-                node.userData._origTransparent = node.material.transparent;
-              }
-              const nm = (
-                (node.name || "") +
-                " " +
-                (node.parent ? node.parent.name || "" : "")
-              ).toLowerCase();
-              const cocok = keywords.some(function (k) {
-                return nm.includes(k);
+          if (punyaNamaLapisan) {
+            // Sembunyikan bagian yang punya nama lapisan lain, biarkan lapisan terpilih tetap tampil
+            root.traverse(function (node) {
+              const nm = (node.name || "").toLowerCase();
+              if (!nm) return;
+              const adalahBagianAtmosfer = allLayerKeywords.some(function (kw) {
+                return nm.includes(kw);
               });
-              node.material.transparent = true;
-              node.material.opacity = cocok
-                ? node.userData._origOpacity
-                : Math.min(node.userData._origOpacity * 0.25, 0.25);
-              node.material.needsUpdate = true;
+              if (adalahBagianAtmosfer) {
+                const adalahTarget = targetKeywords.some(function (kw) {
+                  return nm.includes(kw);
+                });
+                node.visible = adalahTarget;
+              }
+            });
+            return;
+          }
+
+          // 2. Jika tidak ada nama di bumi.js, deteksi otomatis dari jari-jari Sphere (bola berlapis)
+          const daftarMesh = [];
+          root.traverse(function (node) {
+            if (node.isMesh && node.geometry) {
+              if (!node.geometry.boundingSphere) {
+                node.geometry.computeBoundingSphere();
+              }
+              const r =
+                (node.geometry.parameters && node.geometry.parameters.radius) ||
+                (node.geometry.boundingSphere
+                  ? node.geometry.boundingSphere.radius
+                  : 0);
+              daftarMesh.push({
+                node: node,
+                radius: r * (node.scale ? node.scale.x : 1),
+              });
             }
           });
+
+          //kelompokkan berdasarkan radius unik (toleransi 0.005) dari dalam ke luar
+          daftarMesh.sort(function (a, b) {
+            return a.radius - b.radius;
+          });
+
+          const grupRadius = [];
+          daftarMesh.forEach(function (item) {
+            if (item.radius <= 0) return;
+            const grupAda = grupRadius.find(function (g) {
+              return Math.abs(g.radius - item.radius) < 0.005;
+            });
+            if (grupAda) {
+              grupAda.nodes.push(item.node);
+            } else {
+              grupRadius.push({ radius: item.radius, nodes: [item.node] });
+            }
+          });
+
+          // Jika terdapat minimal 5 grup bola berlapis:
+          // - Bila >= 6 grup: indeks 0 = Bola Bumi (tetap tampil), indeks 1..5 = Atmosfer 1..5
+          // - Bila == 5 grup: indeks 0..4 = Atmosfer 1..5
+          if (grupRadius.length >= 5) {
+            const adaBolaBumi = grupRadius.length >= 6;
+            const startIdx = adaBolaBumi ? 1 : 0;
+            const targetIdx = startIdx + (nomor - 1);
+
+            for (let i = startIdx; i < startIdx + 5 && i < grupRadius.length; i++) {
+              const tampilkan = i === targetIdx;
+              grupRadius[i].nodes.forEach(function (n) {
+                n.visible = tampilkan;
+              });
+            }
+            return;
+          }
+
+          // 3. Fallback urutan mesh langsung jika bukan geometri bola standar
+          if (daftarMesh.length >= 5) {
+            const startIdx = daftarMesh.length >= 6 ? 1 : 0;
+            const targetIdx = startIdx + (nomor - 1);
+            for (let i = startIdx; i < startIdx + 5 && i < daftarMesh.length; i++) {
+              daftarMesh[i].node.visible = i === targetIdx;
+            }
+          }
         }
 
         function animateToState(targetMult, targetRotX, targetRotY, targetOffset) {
@@ -1021,7 +1090,6 @@
                 }
               : { x: 0, y: 0, z: 0 };
 
-          // Sinkronkan scaleFactor milik gesture-handler agar cubit manual tidak mereset zoom
           const gh = el.components["gesture-handler"];
           const startGhScale = gh ? gh.scaleFactor || 1 : 1;
           const endGhScale = targetMult;
@@ -1031,7 +1099,7 @@
 
           function step(now) {
             const t = Math.min((now - startTime) / duration, 1);
-            const ease = 1 - Math.pow(1 - t, 3); // Cubic ease-out
+            const ease = 1 - Math.pow(1 - t, 3);
 
             const curScale = startScale + (endScale - startScale) * ease;
             el.object3D.scale.set(curScale, curScale, curScale);
@@ -1064,7 +1132,7 @@
           const data = ATMO_LAYERS[nomor];
           if (!data) return;
 
-          // Jika nomor yang sama diklik ulang, reset zoom
+          // Jika tombol nomor yang sedang aktif diklik lagi -> Reset (tampilkan semua kembali)
           if (activeLayer === nomor) {
             resetZoom();
             return;
@@ -1082,15 +1150,14 @@
           descEl.textContent = data.deskripsi;
           card.classList.add("show");
 
-          // Update tag atas jika sedang mendeteksi marker
           const tag = document.getElementById("object-tag");
           if (tag && tag.style.display === "block") {
             tag.innerText = "🔍 FOKUS: " + data.nama;
           }
 
-          // Jalankan animasi zoom in & highlight
+          // Sembunyikan (hide) lapisan atmosfer lainnya & Zoom-In ke lapisan ini
           const el = document.getElementById("model-utama");
-          if (el) highlightLayerMesh(el, data.keywords);
+          if (el) isolateLayerMesh(el, nomor);
           animateToState(
             data.zoomMultiplier,
             data.rotX,
@@ -1114,8 +1181,9 @@
             tag.innerText = "🌍 DETEKSI: " + nama.toUpperCase();
           }
 
+          // Tampilkan kembali seluruh lapisan atmosfer
           const el = document.getElementById("model-utama");
-          if (el) highlightLayerMesh(el, null);
+          if (el) isolateLayerMesh(el, null);
           animateToState(1, 0, 0, { x: 0, y: 0, z: 0 });
         }
 
