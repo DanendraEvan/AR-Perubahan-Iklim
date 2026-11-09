@@ -392,16 +392,6 @@
         opacity: 0.35;
         cursor: default;
       }
-      #startBtn {
-        width: 100%;
-      }
-      #startBtn.run {
-        border-color: #ffb347;
-        color: #ffb347;
-      }
-      #startBtn.run:hover {
-        background: rgba(255, 179, 71, 0.18);
-      }
 
       /* Panel penjelasan */
       #panel {
@@ -978,10 +968,6 @@
           Ketuk angka kuning, Matahari, panah panas, atau molekul untuk membaca
           penjelasan.
         </li>
-        <li>
-          Tekan <b>Mulai Simulasi</b> untuk penjelasan bertahap, dan geser
-          <b>Gas rumah kaca</b> untuk melihat suhu naik.
-        </li>
       </ol>
       <h3>KETERANGAN GAS RUMAH KACA</h3>
       <div class="legend">
@@ -996,12 +982,11 @@
     </div>
 
     <!-- Kontrol simulasi -->
-    <div id="dock">
-      <button class="pbtn" id="startBtn" type="button">▶ Mulai Simulasi</button>
+    <!-- <div id="dock">
       <label for="gas">Jumlah gas rumah kaca</label>
       <input id="gas" type="range" min="0" max="100" value="0" />
       <div class="rg"><span>Normal</span><span>Meningkat</span></div>
-    </div>
+    </div> -->
 
     <!-- Panel penjelasan -->
     <div id="panel" hidden>
@@ -1014,8 +999,8 @@
       <div class="prow">
         <button class="pbtn" id="nar" type="button">🔊 Narasi</button>
         <span id="nav">
-          <button class="pbtn" id="back" type="button">⟵ Kembali</button>
-          <button class="pbtn" id="next" type="button">Next ➜</button>
+          <button class="pbtn" id="back" type="button">Kembali</button>
+          <button class="pbtn" id="next" type="button">Next</button>
         </span>
       </div>
     </div>
@@ -2281,16 +2266,8 @@
             }
             if (window.speechSynthesis) speechSynthesis.cancel();
           }
-          function setStartBtn(running) {
-            const b = $("#startBtn");
-            b.textContent = running
-              ? "■ Hentikan Simulasi"
-              : "▶ Mulai Simulasi";
-            b.classList.toggle("run", running);
-          }
           function openHotspot(idx) {
             stepIndex = -1;
-            setStartBtn(false);
             showPanel(hotspotsData[idx], idx + 1);
           }
           function runSimStep(idx) {
@@ -2298,9 +2275,8 @@
             stepIndex = idx;
             showPanel(simSteps[idx], simSteps[idx].n);
             $("#next").textContent =
-              idx === simSteps.length - 1 ? "Selesai ✓" : "Next ➜";
+              idx === simSteps.length - 1 ? "Selesai ✓" : "Next";
             $("#back").disabled = idx === 0;
-            setStartBtn(true);
           }
           function resetView() {
             clearSubTimer();
@@ -2308,7 +2284,6 @@
             currentItem = null;
             curMode = "free";
             panelEl.hidden = true;
-            setStartBtn(false);
             if (window.speechSynthesis) speechSynthesis.cancel();
           }
           function resetAll() {
@@ -2319,8 +2294,6 @@
           window.SIM = { reset: resetAll };
 
           $("#x").onclick = resetView;
-          $("#startBtn").onclick = () =>
-            stepIndex >= 0 ? resetView() : runSimStep(0);
           $("#next").onclick = () => runSimStep(stepIndex + 1);
           $("#back").onclick = () => runSimStep(stepIndex - 1);
           $("#gas").oninput = (e) => {
