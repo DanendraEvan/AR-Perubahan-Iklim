@@ -1,592 +1,1705 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover"/>
-  <title>Radiation Balance AR</title>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover"
+    />
+    <title>Radiation Balance AR</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
 
-  <!-- A-Frame + MindAR (image tracking, membaca ./targets.mind). Tidak ada file model terpisah: objek 3D dibuat di bawah -->
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-detector.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-handler.js"></script>
+    <!-- A-Frame + MindAR (image tracking, membaca ./targets.mind). Tidak ada file model terpisah: objek 3D dibuat di bawah -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-detector.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/studio-backend/master/src/modules/marker/tools/gesture-handler.js"></script>
 
-  <style>
-    .a-modal { display: none !important; }
-    [hidden]{display:none !important}
-    html,body{width:100%;height:100%}
-    #ar-wrap{position:fixed;left:0;top:0;width:100%;height:100vh;height:calc(var(--vh,1vh) * 100);height:100dvh;overflow:hidden;background:#000}
-    #ar-wrap a-scene{position:absolute !important;left:0;top:0;width:100% !important;height:100% !important}
-    #ar-wrap video{max-width:none}
-    body{margin:0;overflow:hidden;font-family:'IBM Plex Mono','Courier New',Courier,monospace;background:#000;user-select:none;-webkit-user-select:none}
-
-    .loading{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 24px;font-size:18px;font-weight:500;letter-spacing:3px;color:#fff;text-shadow:0 0 20px rgba(77,184,255,.5);
-      background:radial-gradient(ellipse 110% 45% at 50% 112%,rgba(40,130,255,.5),transparent 72%),linear-gradient(180deg,#000 0%,#02050d 55%,#061226 100%)}
-    .loading::after{content:'';display:block;width:40px;height:40px;margin:28px auto 0;border:3px solid rgba(77,184,255,.22);border-top:3px solid #ffb347;border-radius:50%;animation:spin 1s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @keyframes pulse{0%{transform:scale(1)}100%{transform:scale(1.03)}}
-    @keyframes pl{0%{box-shadow:0 0 0 0 rgba(255,179,71,.85)}70%{box-shadow:0 0 0 14px rgba(255,179,71,0)}100%{box-shadow:0 0 0 0 rgba(255,179,71,0)}}
-
-    #gui-container{position:absolute;top:calc(22px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:999;text-align:center;width:65%;max-width:320px;pointer-events:none}
-    .object-tag{background:rgba(0,0,0,.78);color:#33ccff;border:1.5px solid #33ccff;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:bold;letter-spacing:1px;box-shadow:0 0 15px rgba(51,204,255,.45);display:none;animation:pulse 1.5s infinite alternate}
-
-    .ui-btn{position:absolute;z-index:10001;width:52px;height:52px;padding:0;border-radius:50%;background:rgba(0,0,0,.6);border:2px solid #33ccff;color:#33ccff;display:grid;place-items:center;cursor:pointer;box-shadow:0 0 15px rgba(51,204,255,.5);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);-webkit-tap-highlight-color:transparent;touch-action:manipulation;font-family:inherit;transition:background .2s,transform .15s}
-    .ui-btn:hover,.ui-btn:focus-visible{background:rgba(51,204,255,.2);outline:none}
-    .ui-btn:active{transform:scale(.92)}
-    .ui-btn svg{width:24px;height:24px;display:block}
-    #btn-menu{top:calc(20px + env(safe-area-inset-top,0px));left:20px}
-    #btn-info{top:calc(20px + env(safe-area-inset-top,0px));right:20px;font-size:26px;font-weight:bold;line-height:1}
-    #btn-next{bottom:calc(30px + env(safe-area-inset-bottom,0px));left:20px}
-
-    #overlay{position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .25s}
-    #overlay.show{opacity:1;pointer-events:auto}
-
-    #menu-panel{position:fixed;top:0;left:0;bottom:0;width:min(80vw,300px);z-index:10003;background:rgba(0,0,0,.92);border-right:2px solid #33ccff;box-shadow:0 0 25px rgba(51,204,255,.4);padding:calc(90px + env(safe-area-inset-top,0px)) 24px 24px;transform:translateX(-105%);transition:transform .3s ease;color:#33ccff;box-sizing:border-box}
-    #menu-panel.show{transform:translateX(0)}
-    #menu-panel h2{margin:0 0 20px;font-size:14px;letter-spacing:3px;opacity:.7}
-    #menu-panel a,#menu-panel button.menu-item{display:block;width:100%;box-sizing:border-box;padding:14px 4px;margin:0;background:none;border:0;border-bottom:1px solid rgba(51,204,255,.25);color:#33ccff;font:inherit;font-size:16px;text-align:left;text-decoration:none;cursor:pointer}
-    #menu-panel a:hover,#menu-panel button.menu-item:hover{color:#fff;outline:none}
-
-    #info-modal{position:fixed;top:50%;left:50%;z-index:10003;width:min(88vw,380px);max-height:80vh;overflow-y:auto;transform:translate(-50%,-50%) scale(.92);opacity:0;pointer-events:none;background:rgba(0,0,0,.92);border:2px solid #33ccff;border-radius:12px;box-shadow:0 0 25px rgba(51,204,255,.5);padding:24px;color:#fff;box-sizing:border-box;transition:opacity .25s,transform .25s}
-    #info-modal.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
-    #info-modal h2{margin:0 0 14px;color:#33ccff;font-size:18px;letter-spacing:2px}
-    #info-modal ol{margin:0;padding-left:20px;line-height:1.7;font-size:14px}
-    #info-modal li{margin-bottom:6px}
-    #info-modal h3{margin:16px 0 6px;color:#ffb347;font-size:13px;letter-spacing:1px}
-    #info-modal .legend{font-size:12px;line-height:1.9}
-    #info-modal .legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin:0 5px 0 0;vertical-align:-1px;border:1px solid rgba(255,255,255,.5)}
-    #info-modal .close-btn{margin-top:18px;width:100%;padding:12px;background:none;border:1px solid #33ccff;border-radius:6px;color:#33ccff;font:inherit;font-weight:bold;cursor:pointer}
-    #info-modal .close-btn:hover{background:rgba(51,204,255,.2);outline:none}
-
-    /* Kontrol simulasi (bawah) */
-    #dock{position:absolute;z-index:10001;left:calc(84px + env(safe-area-inset-left,0px));right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px));padding:10px 12px;background:rgba(0,0,0,.72);border:1.5px solid #33ccff;border-radius:12px;box-shadow:0 0 15px rgba(51,204,255,.35);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);color:#fff;font-size:12px;box-sizing:border-box}
-    #dock label{display:block;margin-top:9px;color:#33ccff;font-weight:600}
-    #dock input[type=range]{width:100%;margin:6px 0 0;accent-color:#ffb347;cursor:pointer}
-    #dock .rg{display:flex;justify-content:space-between;font-size:11px;opacity:.75}
-    .pbtn{font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:9px 12px;border-radius:8px;background:none;border:1.5px solid #33ccff;color:#33ccff;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-    .pbtn:hover,.pbtn:focus-visible{background:rgba(51,204,255,.2);outline:none}
-    .pbtn:disabled{opacity:.35;cursor:default}
-    #startBtn{width:100%}
-    #startBtn.run{border-color:#ffb347;color:#ffb347}
-    #startBtn.run:hover{background:rgba(255,179,71,.18)}
-
-    /* Panel penjelasan */
-    #panel{position:absolute;z-index:10001;left:calc(20px + env(safe-area-inset-left,0px));right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(158px + env(safe-area-inset-bottom,0px));max-height:min(42%,340px);overflow-y:auto;padding:14px 16px;background:rgba(0,0,0,.88);border:1.5px solid #33ccff;border-radius:12px;box-shadow:0 0 20px rgba(51,204,255,.4);color:#fff;font-size:13px;line-height:1.6;box-sizing:border-box}
-    #panel h2{margin:0 0 6px;font-size:15px;line-height:1.3;color:#33ccff;padding-right:34px}
-    #panel p{margin:0 0 8px}
-    #x{position:absolute;top:8px;right:8px;width:30px;height:30px;padding:0;border-radius:50%;font-size:14px}
-    #badge{display:inline-grid;place-items:center;min-width:26px;height:26px;border-radius:50%;background:#ffb347;color:#111;font-weight:800;margin-bottom:6px}
-    #badge:empty{display:none}
-    #subs{display:flex;gap:6px;margin:6px 0 8px}
-    .chip{flex:1;padding:6px 8px;font-size:12px;border-width:2px}
-    .chip.uva{border-color:#b35cff;color:#d9b3ff}.chip.uvb{border-color:#4db3ff;color:#a9dcff}.chip.uvc{border-color:#ffe14d;color:#fff0a0}
-    .chip.on{background:rgba(255,255,255,.22);color:#fff}
-    #sp{background:rgba(255,255,255,.08);border-radius:8px;padding:8px 10px;font-size:12px}
-    #sp:empty{display:none}
-    .prow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
-    #nav{display:none;gap:8px;margin-left:auto}
-
-    #toast{position:absolute;z-index:10004;top:calc(84px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);padding:8px 14px;background:rgba(0,0,0,.88);border:1.5px solid #ffb347;border-radius:8px;color:#ffb347;font-size:12px;display:none;max-width:80%;text-align:center}
-
-    /* Label 2D yang menempel pada objek 3D */
-    #c2d{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:5000}
-    .lbl{position:absolute;font-size:11px;font-weight:600;white-space:nowrap;padding:2px 7px;background:rgba(4,10,24,.72);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;text-shadow:0 1px 4px #000;text-align:center;transform:translate(-50%,-50%);pointer-events:none}
-    .sunl{color:#ffd36b;border-color:#ffb02e;background:rgba(60,30,0,.7)}
-    .sunl small{font-weight:400;font-size:.85em}
-    .oz{color:#8dffd8;border-color:rgba(141,255,216,.4)}
-    .tr{color:#9fd0ff;border-color:rgba(159,208,255,.4)}
-    .hs{position:absolute;width:30px;height:30px;border-radius:50%;background:#ffb347;color:#111;font-weight:800;font-size:13px;display:grid;place-items:center;cursor:pointer;pointer-events:auto;transform:translate(-50%,-50%);animation:pl 1.6s infinite;box-shadow:0 2px 10px rgba(0,0,0,.5);-webkit-tap-highlight-color:transparent}
-    @media(prefers-reduced-motion:reduce){.hs,.object-tag{animation:none}}
-
-    /* Wadah UI: diputar mengikuti arah HP sebenarnya (lihat skrip sensor di bawah) */
-    #ui-rot{position:fixed;left:50%;top:50%;z-index:10001;pointer-events:none;transform:translate(-50%,-50%)}
-    #ui-rot .ui-btn,#ui-rot #menu-panel,#ui-rot #dock,#ui-rot #panel{pointer-events:auto}
-    #ui-rot #info-modal{max-height:80%}
-    #ui-rot.land .ui-btn{width:44px;height:44px}
-    #ui-rot.land .ui-btn svg{width:20px;height:20px}
-    #ui-rot.land #btn-menu,#ui-rot.land #btn-info{top:calc(10px + env(safe-area-inset-top,0px))}
-    #ui-rot.land #btn-next{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
-    #ui-rot.land #gui-container{top:calc(10px + env(safe-area-inset-top,0px));width:40%}
-    #ui-rot.land #menu-panel{padding-top:64px}
-    #ui-rot.land #info-modal{padding:16px}
-    #ui-rot.land #dock{left:auto;right:calc(12px + env(safe-area-inset-right,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(44%,300px);padding:8px 10px}
-    #ui-rot.land #dock label{margin-top:6px}
-    #ui-rot.land #panel{left:calc(76px + env(safe-area-inset-left,0px));right:auto;top:64px;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(42%,340px);max-height:none}
-
-    /* Penyesuaian landscape / layar pendek / poni (notch) */
-    #btn-menu,#btn-next{left:calc(20px + env(safe-area-inset-left,0px))}
-    #btn-info{right:calc(20px + env(safe-area-inset-right,0px))}
-    @media (orientation:landscape) and (max-height:520px){
-      .ui-btn{width:44px;height:44px}
-      .ui-btn svg{width:20px;height:20px}
-      #btn-menu,#btn-info{top:calc(10px + env(safe-area-inset-top,0px))}
-      #btn-next{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
-      #gui-container{top:calc(10px + env(safe-area-inset-top,0px));width:40%}
-      #menu-panel{padding-top:calc(64px + env(safe-area-inset-top,0px))}
-      #info-modal{max-height:88vh;padding:16px}
-    }
-    /* ===== Strip info gas rumah kaca (bawah layar) ===== */
-    #info-bawah{position:absolute;left:0;right:0;bottom:0;z-index:10001;box-sizing:border-box;padding:0 8px calc(8px + env(safe-area-inset-bottom,0px));pointer-events:none}
-    #ui-rot #info-bawah > *{pointer-events:auto}
-    #ib-toggle{display:block;margin:0 auto 6px;padding:5px 14px;font:inherit;font-size:11px;font-weight:700;letter-spacing:1px;color:#33ccff;background:rgba(0,0,0,.7);border:1.5px solid #33ccff;border-radius:16px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-    #ib-toggle:hover,#ib-toggle:focus-visible{background:rgba(51,204,255,.2);outline:none}
-    #ib-isi{display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
-    #ib-isi[hidden]{display:none}
-    .ib-card{flex:none;box-sizing:border-box;padding:10px 12px;color:#fff;background:rgba(6,16,34,.84);border:1.5px solid rgba(120,170,230,.4);border-radius:14px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
-    .ib-card h3{margin:0 0 8px;font-size:11px;letter-spacing:1.5px;text-align:center;color:#fff}
-    .ib-gas{display:grid;grid-template-columns:repeat(2,auto);gap:6px 18px}
-    .ib-gas .it{display:flex;align-items:center;gap:7px;font-size:11px;white-space:nowrap}
-    .ib-gas .it b{font-weight:700}
-    .ib-src{display:flex;gap:10px}
-    .ib-src .it{display:flex;flex-direction:column;align-items:center;gap:5px;width:84px;text-align:center;font-size:10px;line-height:1.25}
-    .ib-src a.it{color:#fff;text-decoration:none;cursor:pointer;border-radius:10px;padding:2px;-webkit-tap-highlight-color:transparent}
-    .ib-src a.it:hover,.ib-src a.it:focus-visible{background:rgba(51,204,255,.18);outline:none}
-    .ib-ikon{display:grid;place-items:center;flex:none;overflow:hidden;background:rgba(255,255,255,.06)}
-    .ib-ikon img{width:100%;height:100%;object-fit:contain;display:block}
-    .ib-ikon.kosong{border:1.5px dashed rgba(255,255,255,.3)}
-    .ib-ikon.gas{width:44px;height:32px;border-radius:6px}
-    .ib-ikon.sumber{width:58px;height:58px;border-radius:50%}
-    /* Kontrol lain naik di atas strip (tinggi strip diukur otomatis -> --info-h) */
-    #btn-next{bottom:calc(30px + var(--info-h,0px) + env(safe-area-inset-bottom,0px))}
-    #dock{bottom:calc(30px + var(--info-h,0px) + env(safe-area-inset-bottom,0px))}
-    #panel{bottom:calc(158px + var(--info-h,0px) + env(safe-area-inset-bottom,0px))}
-    #ui-rot.land #btn-next{bottom:calc(12px + var(--info-h,0px) + env(safe-area-inset-bottom,0px))}
-    #ui-rot.land #dock{bottom:calc(12px + var(--info-h,0px) + env(safe-area-inset-bottom,0px))}
-    #ui-rot.land #panel{bottom:calc(12px + var(--info-h,0px) + env(safe-area-inset-bottom,0px))}
-    @media (orientation:landscape) and (max-height:520px){
-      #btn-next{bottom:calc(12px + var(--info-h,0px) + env(safe-area-inset-bottom,0px))}
-      .ib-ikon.sumber{width:44px;height:44px}
-      .ib-src .it{width:72px}
-    }
-  </style>
-
-  <script>
-    // Tampilkan label saat gambar target terdeteksi (MindAR: targetFound / targetLost)
-    const NAMA_OBJEK = 'Radiation Balance';
-    AFRAME.registerComponent('marker-listener', {
-      init: function () {
-        const tag = document.getElementById('object-tag');
-        const scene = this.el.sceneEl;
-        this.el.addEventListener('targetFound', () => {
-          tag.innerText = '🌍 DETEKSI: ' + NAMA_OBJEK.toUpperCase();
-          tag.style.display = 'block';
-          // gesture-handler mendengarkan event "markerFound" pada scene
-          scene.emit('markerFound');
-        });
-        this.el.addEventListener('targetLost', () => {
-          tag.style.display = 'none';
-          scene.emit('markerLost');
-        });
+    <style>
+      .a-modal {
+        display: none !important;
       }
-    });
-  </script>
-  <script>
-    (function () {
-      function bersihkan() {
-        document.querySelectorAll('.a-modal, [class*="a-dialog"]').forEach(function (e) { e.remove(); });
+      [hidden] {
+        display: none !important;
       }
-      new MutationObserver(bersihkan).observe(document.documentElement, { childList: true, subtree: true });
-      setInterval(bersihkan, 500);
-    })();
-  </script>
-</head>
-<body>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+      }
+      #ar-wrap {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100vh;
+        height: calc(var(--vh, 1vh) * 100);
+        height: 100dvh;
+        overflow: hidden;
+        background: #000;
+      }
+      #ar-wrap a-scene {
+        position: absolute !important;
+        left: 0;
+        top: 0;
+        width: 100% !important;
+        height: 100% !important;
+      }
+      #ar-wrap video {
+        max-width: none;
+      }
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: "IBM Plex Mono", "Courier New", Courier, monospace;
+        background: #000;
+        user-select: none;
+        -webkit-user-select: none;
+      }
 
-  <div class="loading" id="loading">MEMUAT SIMULASI IKLIM...</div>
+      .loading {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 0 24px;
+        font-size: 18px;
+        font-weight: 500;
+        letter-spacing: 3px;
+        color: #fff;
+        text-shadow: 0 0 20px rgba(77, 184, 255, 0.5);
+        background: radial-gradient(
+            ellipse 110% 45% at 50% 112%,
+            rgba(40, 130, 255, 0.5),
+            transparent 72%
+          ),
+          linear-gradient(180deg, #000 0%, #02050d 55%, #061226 100%);
+      }
+      .loading::after {
+        content: "";
+        display: block;
+        width: 40px;
+        height: 40px;
+        margin: 28px auto 0;
+        border: 3px solid rgba(77, 184, 255, 0.22);
+        border-top: 3px solid #ffb347;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+        }
+        100% {
+          transform: scale(1.03);
+        }
+      }
+      @keyframes pl {
+        0% {
+          box-shadow: 0 0 0 0 rgba(255, 179, 71, 0.85);
+        }
+        70% {
+          box-shadow: 0 0 0 14px rgba(255, 179, 71, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(255, 179, 71, 0);
+        }
+      }
 
-  <div id="gui-container"><div class="object-tag" id="object-tag"></div></div>
+      #gui-container {
+        position: absolute;
+        top: calc(22px + env(safe-area-inset-top, 0px));
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 999;
+        text-align: center;
+        width: 65%;
+        max-width: 320px;
+        pointer-events: none;
+      }
+      .object-tag {
+        background: rgba(0, 0, 0, 0.78);
+        color: #33ccff;
+        border: 1.5px solid #33ccff;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: bold;
+        letter-spacing: 1px;
+        box-shadow: 0 0 15px rgba(51, 204, 255, 0.45);
+        display: none;
+        animation: pulse 1.5s infinite alternate;
+      }
 
-  <button class="ui-btn" id="btn-menu" type="button" aria-label="Buka menu" aria-controls="menu-panel" aria-expanded="false">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-  </button>
-  <button class="ui-btn" id="btn-info" type="button" aria-label="Informasi" aria-controls="info-modal">i</button>
-  <button class="ui-btn" id="btn-next" type="button" aria-label="Putar model ke kanan">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-  </button>
+      .ui-btn {
+        position: absolute;
+        z-index: 10001;
+        width: 52px;
+        height: 52px;
+        padding: 0;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.6);
+        border: 2px solid #33ccff;
+        color: #33ccff;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        box-shadow: 0 0 15px rgba(51, 204, 255, 0.5);
+        -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        font-family: inherit;
+        transition: background 0.2s, transform 0.15s;
+      }
+      .ui-btn:hover,
+      .ui-btn:focus-visible {
+        background: rgba(51, 204, 255, 0.2);
+        outline: none;
+      }
+      .ui-btn:active {
+        transform: scale(0.92);
+      }
+      .ui-btn svg {
+        width: 24px;
+        height: 24px;
+        display: block;
+      }
+      #btn-menu {
+        top: calc(20px + env(safe-area-inset-top, 0px));
+        left: 20px;
+      }
+      #btn-info {
+        top: calc(20px + env(safe-area-inset-top, 0px));
+        right: 20px;
+        font-size: 26px;
+        font-weight: bold;
+        line-height: 1;
+      }
+      #btn-next {
+        bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+        left: 20px;
+      }
 
-  <div id="overlay"></div>
+      #overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 10002;
+        background: rgba(0, 0, 0, 0.55);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s;
+      }
+      #overlay.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
 
-  <aside id="menu-panel" aria-hidden="true">
-    <h2>MENU</h2>
-    <a href="/home.html">Beranda</a>
-   
-  </aside>
+      #menu-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: min(80vw, 300px);
+        z-index: 10003;
+        background: rgba(0, 0, 0, 0.92);
+        border-right: 2px solid #33ccff;
+        box-shadow: 0 0 25px rgba(51, 204, 255, 0.4);
+        padding: calc(90px + env(safe-area-inset-top, 0px)) 24px 24px;
+        transform: translateX(-105%);
+        transition: transform 0.3s ease;
+        color: #33ccff;
+        box-sizing: border-box;
+      }
+      #menu-panel.show {
+        transform: translateX(0);
+      }
+      #menu-panel h2 {
+        margin: 0 0 20px;
+        font-size: 14px;
+        letter-spacing: 3px;
+        opacity: 0.7;
+      }
+      #menu-panel a,
+      #menu-panel button.menu-item {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 14px 4px;
+        margin: 0;
+        background: none;
+        border: 0;
+        border-bottom: 1px solid rgba(51, 204, 255, 0.25);
+        color: #33ccff;
+        font: inherit;
+        font-size: 16px;
+        text-align: left;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      #menu-panel a:hover,
+      #menu-panel button.menu-item:hover {
+        color: #fff;
+        outline: none;
+      }
 
-  <div id="info-modal" role="dialog" aria-modal="true" aria-labelledby="info-title" aria-hidden="true">
-    <h2 id="info-title">PANDUAN AR</h2>
-    <ol>
-      <li>Izinkan browser memakai kamera.</li>
-      <li>Arahkan kamera ke gambar target sampai simulasi Bumi muncul.</li>
-      <li>Geser satu jari untuk memutar, cubit dua jari untuk memperbesar/memperkecil.</li>
-      <li>Ketuk angka kuning, Matahari, panah panas, atau molekul untuk membaca penjelasan.</li>
-      <li>Tekan <b>Mulai Simulasi</b> untuk penjelasan bertahap, dan geser <b>Gas rumah kaca</b> untuk melihat suhu naik.</li>
-    </ol>
-    <h3>KETERANGAN GAS RUMAH KACA</h3>
-    <div class="legend">
-      <i style="background:#3b3b3b"></i>C karbon &nbsp;
-      <i style="background:#e02020"></i>O oksigen<br>
-      <i style="background:#f2f2f2"></i>H hidrogen &nbsp;
-      <i style="background:#2a6bff"></i>N nitrogen<br>
-      CO₂ karbon dioksida · CH₄ metana · N₂O dinitrogen oksida · H₂O uap air · O₃ ozon
+      #info-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        z-index: 10003;
+        width: min(88vw, 380px);
+        max-height: 80vh;
+        overflow-y: auto;
+        transform: translate(-50%, -50%) scale(0.92);
+        opacity: 0;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.92);
+        border: 2px solid #33ccff;
+        border-radius: 12px;
+        box-shadow: 0 0 25px rgba(51, 204, 255, 0.5);
+        padding: 24px;
+        color: #fff;
+        box-sizing: border-box;
+        transition: opacity 0.25s, transform 0.25s;
+      }
+      #info-modal.show {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      #info-modal h2 {
+        margin: 0 0 14px;
+        color: #33ccff;
+        font-size: 18px;
+        letter-spacing: 2px;
+      }
+      #info-modal ol {
+        margin: 0;
+        padding-left: 20px;
+        line-height: 1.7;
+        font-size: 14px;
+      }
+      #info-modal li {
+        margin-bottom: 6px;
+      }
+      #info-modal h3 {
+        margin: 16px 0 6px;
+        color: #ffb347;
+        font-size: 13px;
+        letter-spacing: 1px;
+      }
+      #info-modal .legend {
+        font-size: 12px;
+        line-height: 1.9;
+      }
+      #info-modal .legend i {
+        display: inline-block;
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        margin: 0 5px 0 0;
+        vertical-align: -1px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+      }
+      #info-modal .close-btn {
+        margin-top: 18px;
+        width: 100%;
+        padding: 12px;
+        background: none;
+        border: 1px solid #33ccff;
+        border-radius: 6px;
+        color: #33ccff;
+        font: inherit;
+        font-weight: bold;
+        cursor: pointer;
+      }
+      #info-modal .close-btn:hover {
+        background: rgba(51, 204, 255, 0.2);
+        outline: none;
+      }
+
+      /* Kontrol simulasi (bawah) */
+      #dock {
+        position: absolute;
+        z-index: 10001;
+        left: calc(84px + env(safe-area-inset-left, 0px));
+        right: calc(20px + env(safe-area-inset-right, 0px));
+        bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+        padding: 10px 12px;
+        background: rgba(0, 0, 0, 0.72);
+        border: 1.5px solid #33ccff;
+        border-radius: 12px;
+        box-shadow: 0 0 15px rgba(51, 204, 255, 0.35);
+        -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
+        color: #fff;
+        font-size: 12px;
+        box-sizing: border-box;
+      }
+      #dock label {
+        display: block;
+        margin-top: 9px;
+        color: #33ccff;
+        font-weight: 600;
+      }
+      #dock input[type="range"] {
+        width: 100%;
+        margin: 6px 0 0;
+        accent-color: #ffb347;
+        cursor: pointer;
+      }
+      #dock .rg {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        opacity: 0.75;
+      }
+      .pbtn {
+        font: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 9px 12px;
+        border-radius: 8px;
+        background: none;
+        border: 1.5px solid #33ccff;
+        color: #33ccff;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+      .pbtn:hover,
+      .pbtn:focus-visible {
+        background: rgba(51, 204, 255, 0.2);
+        outline: none;
+      }
+      .pbtn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      #startBtn {
+        width: 100%;
+      }
+      #startBtn.run {
+        border-color: #ffb347;
+        color: #ffb347;
+      }
+      #startBtn.run:hover {
+        background: rgba(255, 179, 71, 0.18);
+      }
+
+      /* Panel penjelasan */
+      #panel {
+        position: absolute;
+        z-index: 10001;
+        left: calc(20px + env(safe-area-inset-left, 0px));
+        right: calc(20px + env(safe-area-inset-right, 0px));
+        bottom: calc(158px + env(safe-area-inset-bottom, 0px));
+        max-height: min(42%, 340px);
+        overflow-y: auto;
+        padding: 14px 16px;
+        background: rgba(0, 0, 0, 0.88);
+        border: 1.5px solid #33ccff;
+        border-radius: 12px;
+        box-shadow: 0 0 20px rgba(51, 204, 255, 0.4);
+        color: #fff;
+        font-size: 13px;
+        line-height: 1.6;
+        box-sizing: border-box;
+      }
+      #panel h2 {
+        margin: 0 0 6px;
+        font-size: 15px;
+        line-height: 1.3;
+        color: #33ccff;
+        padding-right: 34px;
+      }
+      #panel p {
+        margin: 0 0 8px;
+      }
+      #x {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 14px;
+      }
+      #badge {
+        display: inline-grid;
+        place-items: center;
+        min-width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: #ffb347;
+        color: #111;
+        font-weight: 800;
+        margin-bottom: 6px;
+      }
+      #badge:empty {
+        display: none;
+      }
+      #subs {
+        display: flex;
+        gap: 6px;
+        margin: 6px 0 8px;
+      }
+      .chip {
+        flex: 1;
+        padding: 6px 8px;
+        font-size: 12px;
+        border-width: 2px;
+      }
+      .chip.uva {
+        border-color: #b35cff;
+        color: #d9b3ff;
+      }
+      .chip.uvb {
+        border-color: #4db3ff;
+        color: #a9dcff;
+      }
+      .chip.uvc {
+        border-color: #ffe14d;
+        color: #fff0a0;
+      }
+      .chip.on {
+        background: rgba(255, 255, 255, 0.22);
+        color: #fff;
+      }
+      #sp {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+      #sp:empty {
+        display: none;
+      }
+      .prow {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+        align-items: center;
+      }
+      #nav {
+        display: none;
+        gap: 8px;
+        margin-left: auto;
+      }
+
+      #toast {
+        position: absolute;
+        z-index: 10004;
+        top: calc(84px + env(safe-area-inset-top, 0px));
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 8px 14px;
+        background: rgba(0, 0, 0, 0.88);
+        border: 1.5px solid #ffb347;
+        border-radius: 8px;
+        color: #ffb347;
+        font-size: 12px;
+        display: none;
+        max-width: 80%;
+        text-align: center;
+      }
+
+      /* Label 2D yang menempel pada objek 3D */
+      #c2d {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+        z-index: 5000;
+      }
+      .lbl {
+        position: absolute;
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+        padding: 2px 7px;
+        background: rgba(4, 10, 24, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        color: #fff;
+        text-shadow: 0 1px 4px #000;
+        text-align: center;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+      .sunl {
+        color: #ffd36b;
+        border-color: #ffb02e;
+        background: rgba(60, 30, 0, 0.7);
+      }
+      .sunl small {
+        font-weight: 400;
+        font-size: 0.85em;
+      }
+      .oz {
+        color: #8dffd8;
+        border-color: rgba(141, 255, 216, 0.4);
+      }
+      .tr {
+        color: #9fd0ff;
+        border-color: rgba(159, 208, 255, 0.4);
+      }
+      .hs {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #ffb347;
+        color: #111;
+        font-weight: 800;
+        font-size: 13px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        pointer-events: auto;
+        transform: translate(-50%, -50%);
+        animation: pl 1.6s infinite;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        -webkit-tap-highlight-color: transparent;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .hs,
+        .object-tag {
+          animation: none;
+        }
+      }
+
+      /* Wadah UI: diputar mengikuti arah HP sebenarnya (lihat skrip sensor di bawah) */
+      #ui-rot {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        z-index: 10001;
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+      }
+      #ui-rot .ui-btn,
+      #ui-rot #menu-panel,
+      #ui-rot #dock,
+      #ui-rot #panel {
+        pointer-events: auto;
+      }
+      #ui-rot #info-modal {
+        max-height: 80%;
+      }
+      #ui-rot.land .ui-btn {
+        width: 44px;
+        height: 44px;
+      }
+      #ui-rot.land .ui-btn svg {
+        width: 20px;
+        height: 20px;
+      }
+      #ui-rot.land #btn-menu,
+      #ui-rot.land #btn-info {
+        top: calc(10px + env(safe-area-inset-top, 0px));
+      }
+      #ui-rot.land #btn-next {
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      }
+      #ui-rot.land #gui-container {
+        top: calc(10px + env(safe-area-inset-top, 0px));
+        width: 40%;
+      }
+      #ui-rot.land #menu-panel {
+        padding-top: 64px;
+      }
+      #ui-rot.land #info-modal {
+        padding: 16px;
+      }
+      #ui-rot.land #dock {
+        left: auto;
+        right: calc(12px + env(safe-area-inset-right, 0px));
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        width: min(44%, 300px);
+        padding: 8px 10px;
+      }
+      #ui-rot.land #dock label {
+        margin-top: 6px;
+      }
+      #ui-rot.land #panel {
+        left: calc(76px + env(safe-area-inset-left, 0px));
+        right: auto;
+        top: 64px;
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        width: min(42%, 340px);
+        max-height: none;
+      }
+
+      /* Penyesuaian landscape / layar pendek / poni (notch) */
+      #btn-menu,
+      #btn-next {
+        left: calc(20px + env(safe-area-inset-left, 0px));
+      }
+      #btn-info {
+        right: calc(20px + env(safe-area-inset-right, 0px));
+      }
+      @media (orientation: landscape) and (max-height: 520px) {
+        .ui-btn {
+          width: 44px;
+          height: 44px;
+        }
+        .ui-btn svg {
+          width: 20px;
+          height: 20px;
+        }
+        #btn-menu,
+        #btn-info {
+          top: calc(10px + env(safe-area-inset-top, 0px));
+        }
+        #btn-next {
+          bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        }
+        #gui-container {
+          top: calc(10px + env(safe-area-inset-top, 0px));
+          width: 40%;
+        }
+        #menu-panel {
+          padding-top: calc(64px + env(safe-area-inset-top, 0px));
+        }
+        #info-modal {
+          max-height: 88vh;
+          padding: 16px;
+        }
+      }
+      /* ===== Strip info gas rumah kaca (bawah layar) ===== */
+      #info-bawah {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10001;
+        box-sizing: border-box;
+        padding: 0 8px calc(8px + env(safe-area-inset-bottom, 0px));
+        pointer-events: none;
+      }
+      #ui-rot #info-bawah > * {
+        pointer-events: auto;
+      }
+      #ib-toggle {
+        display: block;
+        margin: 0 auto 6px;
+        padding: 5px 14px;
+        font: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #33ccff;
+        background: rgba(0, 0, 0, 0.7);
+        border: 1.5px solid #33ccff;
+        border-radius: 16px;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+      #ib-toggle:hover,
+      #ib-toggle:focus-visible {
+        background: rgba(51, 204, 255, 0.2);
+        outline: none;
+      }
+      #ib-isi {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+      }
+      #ib-isi[hidden] {
+        display: none;
+      }
+      .ib-card {
+        flex: none;
+        box-sizing: border-box;
+        padding: 10px 12px;
+        color: #fff;
+        background: rgba(6, 16, 34, 0.84);
+        border: 1.5px solid rgba(120, 170, 230, 0.4);
+        border-radius: 14px;
+        -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
+      }
+      .ib-card h3 {
+        margin: 0 0 8px;
+        font-size: 11px;
+        letter-spacing: 1.5px;
+        text-align: center;
+        color: #fff;
+      }
+      .ib-gas {
+        display: grid;
+        grid-template-columns: repeat(2, auto);
+        gap: 6px 18px;
+      }
+      .ib-gas .it {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .ib-gas .it b {
+        font-weight: 700;
+      }
+      .ib-src {
+        display: flex;
+        gap: 10px;
+      }
+      .ib-src .it {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        width: 84px;
+        text-align: center;
+        font-size: 10px;
+        line-height: 1.25;
+      }
+      .ib-src a.it {
+        color: #fff;
+        text-decoration: none;
+        cursor: pointer;
+        border-radius: 10px;
+        padding: 2px;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .ib-src a.it:hover,
+      .ib-src a.it:focus-visible {
+        background: rgba(51, 204, 255, 0.18);
+        outline: none;
+      }
+      .ib-ikon {
+        display: grid;
+        place-items: center;
+        flex: none;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .ib-ikon img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+      .ib-ikon.kosong {
+        border: 1.5px dashed rgba(255, 255, 255, 0.3);
+      }
+      .ib-ikon.gas {
+        width: 44px;
+        height: 32px;
+        border-radius: 6px;
+      }
+      .ib-ikon.sumber {
+        width: 58px;
+        height: 58px;
+        border-radius: 50%;
+      }
+      /* Kontrol lain naik di atas strip (tinggi strip diukur otomatis -> --info-h) */
+      #btn-next {
+        bottom: calc(
+          30px + var(--info-h, 0px) + env(safe-area-inset-bottom, 0px)
+        );
+      }
+      #dock {
+        bottom: calc(
+          30px + var(--info-h, 0px) + env(safe-area-inset-bottom, 0px)
+        );
+      }
+      #panel {
+        bottom: calc(
+          158px + var(--info-h, 0px) + env(safe-area-inset-bottom, 0px)
+        );
+      }
+      #ui-rot.land #btn-next {
+        bottom: calc(
+          12px + var(--info-h, 0px) + env(safe-area-inset-bottom, 0px)
+        );
+      }
+      #ui-rot.land #dock {
+        bottom: calc(
+          12px + var(--info-h, 0px) + env(safe-area-inset-bottom, 0px)
+        );
+      }
+      #ui-rot.land #panel {
+        bottom: calc(
+          12px + var(--info-h, 0px) + env(safe-area-inset-bottom, 0px)
+        );
+      }
+      @media (orientation: landscape) and (max-height: 520px) {
+        #btn-next {
+          bottom: calc(
+            12px + var(--info-h, 0px) + env(safe-area-inset-bottom, 0px)
+          );
+        }
+        .ib-ikon.sumber {
+          width: 44px;
+          height: 44px;
+        }
+        .ib-src .it {
+          width: 72px;
+        }
+      }
+    </style>
+
+    <script>
+      // Tampilkan label saat gambar target terdeteksi (MindAR: targetFound / targetLost)
+      const NAMA_OBJEK = "Radiation Balance";
+      AFRAME.registerComponent("marker-listener", {
+        init: function () {
+          const tag = document.getElementById("object-tag");
+          const scene = this.el.sceneEl;
+          this.el.addEventListener("targetFound", () => {
+            tag.innerText = "🌍 DETEKSI: " + NAMA_OBJEK.toUpperCase();
+            tag.style.display = "block";
+            // gesture-handler mendengarkan event "markerFound" pada scene
+            scene.emit("markerFound");
+          });
+          this.el.addEventListener("targetLost", () => {
+            tag.style.display = "none";
+            scene.emit("markerLost");
+          });
+        },
+      });
+    </script>
+    <script>
+      (function () {
+        function bersihkan() {
+          document
+            .querySelectorAll('.a-modal, [class*="a-dialog"]')
+            .forEach(function (e) {
+              e.remove();
+            });
+        }
+        new MutationObserver(bersihkan).observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+        });
+        setInterval(bersihkan, 500);
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="loading" id="loading">MEMUAT SIMULASI IKLIM...</div>
+
+    <div id="gui-container"><div class="object-tag" id="object-tag"></div></div>
+
+    <button
+      class="ui-btn"
+      id="btn-menu"
+      type="button"
+      aria-label="Buka menu"
+      aria-controls="menu-panel"
+      aria-expanded="false"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.4"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        <path d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+    <button
+      class="ui-btn"
+      id="btn-info"
+      type="button"
+      aria-label="Informasi"
+      aria-controls="info-modal"
+    >
+      i
+    </button>
+    <button
+      class="ui-btn"
+      id="btn-next"
+      type="button"
+      aria-label="Putar model ke kanan"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M5 12h14M13 6l6 6-6 6" />
+      </svg>
+    </button>
+
+    <div id="overlay"></div>
+
+    <aside id="menu-panel" aria-hidden="true">
+      <h2>MENU</h2>
+      <a href="/index.html">Beranda</a>
+    </aside>
+
+    <div
+      id="info-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="info-title"
+      aria-hidden="true"
+    >
+      <h2 id="info-title">PANDUAN AR</h2>
+      <ol>
+        <li>Izinkan browser memakai kamera.</li>
+        <li>Arahkan kamera ke gambar target sampai simulasi Bumi muncul.</li>
+        <li>
+          Geser satu jari untuk memutar, cubit dua jari untuk
+          memperbesar/memperkecil.
+        </li>
+        <li>
+          Ketuk angka kuning, Matahari, panah panas, atau molekul untuk membaca
+          penjelasan.
+        </li>
+        <li>
+          Tekan <b>Mulai Simulasi</b> untuk penjelasan bertahap, dan geser
+          <b>Gas rumah kaca</b> untuk melihat suhu naik.
+        </li>
+      </ol>
+      <h3>KETERANGAN GAS RUMAH KACA</h3>
+      <div class="legend">
+        <i style="background: #3b3b3b"></i>C karbon &nbsp;
+        <i style="background: #e02020"></i>O oksigen<br />
+        <i style="background: #f2f2f2"></i>H hidrogen &nbsp;
+        <i style="background: #2a6bff"></i>N nitrogen<br />
+        CO₂ karbon dioksida · CH₄ metana · N₂O dinitrogen oksida · H₂O uap air ·
+        O₃ ozon
+      </div>
+      <button class="close-btn" id="info-close" type="button">TUTUP</button>
     </div>
-    <button class="close-btn" id="info-close" type="button">TUTUP</button>
-  </div>
 
-  <!-- Kontrol simulasi -->
-  <div id="dock">
-    <button class="pbtn" id="startBtn" type="button">▶ Mulai Simulasi</button>
-    <label for="gas">Jumlah gas rumah kaca</label>
-    <input id="gas" type="range" min="0" max="100" value="0">
-    <div class="rg"><span>Normal</span><span>Meningkat</span></div>
-  </div>
-
-  <!-- Panel penjelasan -->
-  <div id="panel" hidden>
-    <button class="pbtn" id="x" type="button" aria-label="Tutup">✕</button>
-    <div id="badge"></div>
-    <h2 id="pt"></h2>
-    <p id="pp"></p>
-    <div id="subs"></div>
-    <p id="sp"></p>
-    <div class="prow">
-      <button class="pbtn" id="nar" type="button">🔊 Narasi</button>
-      <span id="nav">
-        <button class="pbtn" id="back" type="button">⟵ Kembali</button>
-        <button class="pbtn" id="next" type="button">Next ➜</button>
-      </span>
+    <!-- Kontrol simulasi -->
+    <div id="dock">
+      <button class="pbtn" id="startBtn" type="button">▶ Mulai Simulasi</button>
+      <label for="gas">Jumlah gas rumah kaca</label>
+      <input id="gas" type="range" min="0" max="100" value="0" />
+      <div class="rg"><span>Normal</span><span>Meningkat</span></div>
     </div>
-  </div>
 
-  <div id="toast"></div>
-
-  <!-- Strip info bawah layar: isi & gambar diatur lewat GAS_RUMAH_KACA / SUMBER_GAS di skrip paling bawah -->
-  <div id="info-bawah">
-    <button id="ib-toggle" type="button" aria-expanded="true" aria-controls="ib-isi">GAS RUMAH KACA ▾</button>
-    <div id="ib-isi">
-      <section class="ib-card" aria-label="Keterangan gas rumah kaca">
-        <h3>KETERANGAN GAS RUMAH KACA</h3>
-        <div class="ib-gas" id="ib-gas"></div>
-      </section>
-      <section class="ib-card" aria-label="Sumber gas rumah kaca">
-        <h3>SUMBER GAS RUMAH KACA</h3>
-        <div class="ib-src" id="ib-src"></div>
-      </section>
+    <!-- Panel penjelasan -->
+    <div id="panel" hidden>
+      <button class="pbtn" id="x" type="button" aria-label="Tutup">✕</button>
+      <div id="badge"></div>
+      <h2 id="pt"></h2>
+      <p id="pp"></p>
+      <div id="subs"></div>
+      <p id="sp"></p>
+      <div class="prow">
+        <button class="pbtn" id="nar" type="button">🔊 Narasi</button>
+        <span id="nav">
+          <button class="pbtn" id="back" type="button">⟵ Kembali</button>
+          <button class="pbtn" id="next" type="button">Next ➜</button>
+        </span>
+      </div>
     </div>
-  </div>
 
-  <!-- Label 2D yang mengikuti objek 3D -->
-  <div id="c2d"></div>
+    <div id="toast"></div>
 
-  <!-- AR Scene: kamera + gambar target (MindAR). Objek 3D dibuat langsung di komponen "iklim-sim" di bawah -->
-  <!-- imageTargetSrc = file hasil compile gambar (sejajar dengan file ini). -->
-  <div id="ar-wrap">
-  <a-scene
-    mindar-image="imageTargetSrc: /asset/ar2.mind; filterMinCF: 0.0001; filterBeta: 100; missTolerance: 30; warmupTolerance: 5; uiLoading: no; uiScanning: no; uiError: no;"
-    device-orientation-permission-ui="enabled: false"
-    vr-mode-ui="enabled: false;"
-    loading-screen="enabled: false;"
-    renderer="logarithmicDepthBuffer: true;"
-    gesture-detector
-  >
-    <a-entity light="type: ambient; color: #ffffff; intensity: 0.6"></a-entity>
+    <!-- Strip info bawah layar: isi & gambar diatur lewat GAS_RUMAH_KACA / SUMBER_GAS di skrip paling bawah -->
+    <div id="info-bawah">
+      <button
+        id="ib-toggle"
+        type="button"
+        aria-expanded="true"
+        aria-controls="ib-isi"
+      >
+        GAS RUMAH KACA ▾
+      </button>
+      <div id="ib-isi">
+        <section class="ib-card" aria-label="Keterangan gas rumah kaca">
+          <h3>KETERANGAN GAS RUMAH KACA</h3>
+          <div class="ib-gas" id="ib-gas"></div>
+        </section>
+        <section class="ib-card" aria-label="Sumber gas rumah kaca">
+          <h3>SUMBER GAS RUMAH KACA</h3>
+          <div class="ib-src" id="ib-src"></div>
+        </section>
+      </div>
+    </div>
 
-    <!-- targetIndex: urutan gambar di dalam targets.mind (0 = gambar pertama) -->
-    <a-entity id="marker-ar" mindar-image-target="targetIndex: 0" marker-listener></a-entity>
+    <!-- Label 2D yang mengikuti objek 3D -->
+    <div id="c2d"></div>
 
-    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-  </a-scene>
-  </div>
+    <!-- AR Scene: kamera + gambar target (MindAR). Objek 3D dibuat langsung di komponen "iklim-sim" di bawah -->
+    <!-- imageTargetSrc = file hasil compile gambar (sejajar dengan file ini). -->
+    <div id="ar-wrap">
+      <a-scene
+        mindar-image="imageTargetSrc: /asset/ar2.mind; filterMinCF: 0.0001; filterBeta: 100; missTolerance: 30; warmupTolerance: 5; uiLoading: no; uiScanning: no; uiError: no;"
+        device-orientation-permission-ui="enabled: false"
+        vr-mode-ui="enabled: false;"
+        loading-screen="enabled: false;"
+        renderer="logarithmicDepthBuffer: true;"
+        gesture-detector
+      >
+        <a-entity
+          light="type: ambient; color: #ffffff; intensity: 0.6"
+        ></a-entity>
 
-  <script>
-    // Paksa MindAR menghitung ulang ukuran video/canvas setelah siap dan saat layar berubah
-    (function () {
-      const sc = document.querySelector('a-scene');
-      let sedangKirim = false, timers = [];
-      function setVh() { document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px'); }
-      function kirim() {
+        <!-- targetIndex: urutan gambar di dalam targets.mind (0 = gambar pertama) -->
+        <a-entity
+          id="marker-ar"
+          mindar-image-target="targetIndex: 0"
+          marker-listener
+        ></a-entity>
+
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      </a-scene>
+    </div>
+
+    <script>
+      // Paksa MindAR menghitung ulang ukuran video/canvas setelah siap dan saat layar berubah
+      (function () {
+        const sc = document.querySelector("a-scene");
+        let sedangKirim = false,
+          timers = [];
+        function setVh() {
+          document.documentElement.style.setProperty(
+            "--vh",
+            window.innerHeight * 0.01 + "px"
+          );
+        }
+        function kirim() {
+          setVh();
+          sedangKirim = true;
+          try {
+            if (sc.renderer && sc.resize) sc.resize();
+          } catch (e) {}
+          window.dispatchEvent(new Event("resize"));
+          sedangKirim = false;
+        }
+        function jadwalkan() {
+          timers.forEach(clearTimeout);
+          timers = [100, 300, 700, 1200].map(function (ms) {
+            return setTimeout(kirim, ms);
+          });
+        }
         setVh();
-        sedangKirim = true;
-        try { if (sc.renderer && sc.resize) sc.resize(); } catch (e) {}
-        window.dispatchEvent(new Event('resize'));
-        sedangKirim = false;
-      }
-      function jadwalkan() {
-        timers.forEach(clearTimeout);
-        timers = [100, 300, 700, 1200].map(function (ms) { return setTimeout(kirim, ms); });
-      }
-      setVh();
-      sc.addEventListener('arReady', jadwalkan);
-      window.addEventListener('orientationchange', jadwalkan);
-      if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', jadwalkan);
-      window.addEventListener('resize', function () { if (!sedangKirim) jadwalkan(); });
-      if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (!sedangKirim) jadwalkan(); });
-    })();
-  </script>
+        sc.addEventListener("arReady", jadwalkan);
+        window.addEventListener("orientationchange", jadwalkan);
+        if (screen.orientation && screen.orientation.addEventListener)
+          screen.orientation.addEventListener("change", jadwalkan);
+        window.addEventListener("resize", function () {
+          if (!sedangKirim) jadwalkan();
+        });
+        if (window.visualViewport)
+          window.visualViewport.addEventListener("resize", function () {
+            if (!sedangKirim) jadwalkan();
+          });
+      })();
+    </script>
 
-  <script>
-    /* ORIENTASI dasar model terhadap gambar target:
+    <script>
+      /* ORIENTASI dasar model terhadap gambar target:
        'tegak'   = gambar ditempel di dinding / tampil di layar -> atas model = atas gambar, model menghadap kamera
        'berdiri' = gambar diletakkan mendatar di meja -> model berdiri tegak lurus keluar dari gambar
        ROT_X/Y/Z = koreksi manual (derajat), ditambahkan di atas ORIENTASI. */
-    const ORIENTASI = 'tegak';
-    const ROT_X = 0, ROT_Y = 0, ROT_Z = 0;
+      const ORIENTASI = "tegak";
+      const ROT_X = 0,
+        ROT_Y = 0,
+        ROT_Z = 0;
 
-    /* UKURAN: SKALA = ukuran dasar seluruh simulasi (1 satuan simulasi = SKALA x lebar gambar target).
+      /* UKURAN: SKALA = ukuran dasar seluruh simulasi (1 satuan simulasi = SKALA x lebar gambar target).
        Bumi beserta atmosfernya berjari-jari sekitar 6,6 satuan, jadi SKALA 0.04 -> diameter Bumi kira-kira setengah lebar gambar.
        UKURAN = pengali tambahan; UKURAN_PORTRAIT / UKURAN_LANDSCAPE = pengali saat HP berdiri / miring.
        POSISI = letak pusat Bumi terhadap gambar target (z positif = melayang ke arah kamera). */
-    const SKALA = 0.04;
-    const POSISI = '0 0 0.2';
-    const UKURAN = 1;
-    const UKURAN_PORTRAIT = 1, UKURAN_LANDSCAPE = 1;
+      const SKALA = 0.04;
+      const POSISI = "0 0 0.2";
+      const UKURAN = 1;
+      const UKURAN_PORTRAIT = 1,
+        UKURAN_LANDSCAPE = 1;
 
-    /* ANTI-GETAR: SMOOTH 0.05..1, makin KECIL = makin halus/stabil tapi makin lambat mengikuti (1 = tanpa penghalus). */
-    const SMOOTH = 0.2;
+      /* ANTI-GETAR: SMOOTH 0.05..1, makin KECIL = makin halus/stabil tapi makin lambat mengikuti (1 = tanpa penghalus). */
+      const SMOOTH = 0.2;
 
-    // Penghalus tambahan: entity ini mengikuti gambar target dengan interpolasi sehingga getaran kecil teredam
-    AFRAME.registerComponent('smooth-follow', {
-      schema: { target: { type: 'selector' }, factor: { type: 'number', default: 0.2 } },
-      init: function () {
-        const T = AFRAME.THREE;
-        this.p = new T.Vector3(); this.q = new T.Quaternion(); this.s = new T.Vector3();
-        this.snap = true;
-        this.el.object3D.visible = false;
-      },
-      tick: function () {
-        const t = this.data.target && this.data.target.object3D;
-        if (!t) return;
-        const o = this.el.object3D;
-        if (!t.visible) { o.visible = false; this.snap = true; return; }
-        t.matrix.decompose(this.p, this.q, this.s);
-        if (this.snap) { o.position.copy(this.p); o.quaternion.copy(this.q); o.scale.copy(this.s); this.snap = false; }
-        else {
-          const f = this.data.factor;
-          o.position.lerp(this.p, f); o.quaternion.slerp(this.q, f); o.scale.lerp(this.s, f);
-        }
-        o.visible = true;
-      }
-    });
+      // Penghalus tambahan: entity ini mengikuti gambar target dengan interpolasi sehingga getaran kecil teredam
+      AFRAME.registerComponent("smooth-follow", {
+        schema: {
+          target: { type: "selector" },
+          factor: { type: "number", default: 0.2 },
+        },
+        init: function () {
+          const T = AFRAME.THREE;
+          this.p = new T.Vector3();
+          this.q = new T.Quaternion();
+          this.s = new T.Vector3();
+          this.snap = true;
+          this.el.object3D.visible = false;
+        },
+        tick: function () {
+          const t = this.data.target && this.data.target.object3D;
+          if (!t) return;
+          const o = this.el.object3D;
+          if (!t.visible) {
+            o.visible = false;
+            this.snap = true;
+            return;
+          }
+          t.matrix.decompose(this.p, this.q, this.s);
+          if (this.snap) {
+            o.position.copy(this.p);
+            o.quaternion.copy(this.q);
+            o.scale.copy(this.s);
+            this.snap = false;
+          } else {
+            const f = this.data.factor;
+            o.position.lerp(this.p, f);
+            o.quaternion.slerp(this.q, f);
+            o.scale.lerp(this.s, f);
+          }
+          o.visible = true;
+        },
+      });
 
-    /* =====================================================================
+      /* =====================================================================
        OBJEK 3D + LOGIKA SIMULASI (semuanya di sini, tanpa file model eksternal)
        Komponen "iklim-sim": Bumi low-poly, atmosfer, ozon, Matahari, sinar UV/gelombang pendek,
        panah inframerah, molekul gas rumah kaca, termometer, label 2D, hotspot, dan panel penjelasan.
        ===================================================================== */
-    AFRAME.registerComponent('iklim-sim', {
-      init: function () {
-        const THREE = AFRAME.THREE;
-        const sceneEl = this.el.sceneEl;
-        const $ = s => document.querySelector(s);
-        const UP = new THREE.Vector3(0, 1, 0);
-        const rand = (a, b) => a + Math.random() * (b - a);
-        const self = this;
+      AFRAME.registerComponent("iklim-sim", {
+        init: function () {
+          const THREE = AFRAME.THREE;
+          const sceneEl = this.el.sceneEl;
+          const $ = (s) => document.querySelector(s);
+          const UP = new THREE.Vector3(0, 1, 0);
+          const rand = (a, b) => a + Math.random() * (b - a);
+          const self = this;
 
-        const root = new THREE.Group();
-        this.el.setObject3D('sim', root);
+          const root = new THREE.Group();
+          this.el.setObject3D("sim", root);
 
-        function showToast(msg) {
-          const t = $('#toast');
-          t.textContent = msg;
-          t.style.display = 'block';
-          clearTimeout(t._timer);
-          t._timer = setTimeout(() => { t.style.display = 'none'; }, 3200);
-        }
-
-        // ---------- Pencahayaan (di dalam grup, jadi ikut gambar target) ----------
-        const sunPos = new THREE.Vector3(-12, 7, 0);
-        const sunLight = new THREE.DirectionalLight(0xffe9a8, 1.5);
-        sunLight.position.copy(sunPos);
-        root.add(sunLight, sunLight.target);
-        const frontLight = new THREE.DirectionalLight(0xdbeafe, 0.8);
-        frontLight.position.set(10, 5, 16);
-        root.add(frontLight, frontLight.target);
-        root.add(new THREE.HemisphereLight(0x88ccff, 0x102344, 0.8));
-
-        // ---------- Sistem label 2D ----------
-        const labels2D = [];
-        const c2d = $('#c2d');
-        function createLabel2D(html, cls, x = 0, y = 0, z = 0) {
-          const el = document.createElement('div');
-          el.className = cls;
-          el.innerHTML = html;
-          c2d.appendChild(el);
-          const obj = new THREE.Object3D();
-          obj.position.set(x, y, z);
-          labels2D.push({ el, obj });
-          return obj;
-        }
-
-        // ---------- Bumi low-poly ----------
-        const R_OCEAN = 5.0, R_LAND = 5.21, R_POLAR = 5.19;
-        const earthGroup = new THREE.Group();
-        earthGroup.rotation.y = -0.32;
-        earthGroup.rotation.x = 0.08;
-        root.add(earthGroup);
-
-        function pointInPoly(lon, lat, poly) {
-          let inside = false;
-          for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-            const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
-            const intersect = ((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-7) + xi);
-            if (intersect) inside = !inside;
-          }
-          return inside;
-        }
-
-        const P_AFRICA = [[-18,15],[-17,22],[-13,28],[-6,36],[10,37],[12,33],[25,32],[33,31],[39,21],[43,12],[51,12],[49,4],[41,-3],[40,-11],[35,-18],[33,-26],[27,-34],[18,-35],[14,-22],[12,-15],[13,-6],[9,-2],[8,4],[2,6],[-8,4],[-13,8]];
-        const P_MADAGASCAR = [[43,-13],[48,-12],[50,-15],[49,-21],[47,-26],[43,-25],[43,-18]];
-        const P_ARABIA = [[34,30],[36,37],[46,31],[51,29],[57,24],[60,21],[55,16],[45,12],[41,15],[35,27]];
-        const P_EURASIA = [[-10,36],[-9,43],[-2,44],[-5,48],[3,51],[8,55],[6,62],[18,70],[32,71],[65,72],[105,73],[145,66],[165,60],[142,48],[132,40],[122,31],[118,22],[109,18],[104,10],[100,14],[96,16],[88,22],[80,15],[77,8],[72,18],[67,25],[57,26],[49,30],[42,37],[35,36],[27,38],[26,42],[23,37],[19,40],[16,38],[13,44],[9,44],[5,43],[0,38],[-5,36]];
-        const P_UK_SCANDI = [[-9,51],[-6,59],[1,58],[2,51]];
-        const P_SOUTH_AMERICA = [[-81,10],[-74,12],[-61,10],[-50,1],[-34,-6],[-36,-15],[-40,-22],[-48,-28],[-54,-35],[-64,-44],[-68,-55],[-74,-52],[-75,-40],[-71,-30],[-71,-18],[-77,-11],[-82,-4],[-78,5]];
-        const P_NORTH_AMERICA = [[-165,64],[-140,70],[-95,71],[-75,65],[-55,52],[-65,44],[-76,35],[-81,25],[-84,30],[-96,28],[-98,19],[-83,9],[-78,8],[-86,12],[-96,15],[-106,22],[-115,32],[-125,42],[-132,55],[-152,60]];
-        const P_AUSTRALIA = [[114,-22],[122,-16],[132,-12],[142,-11],[150,-20],[153,-28],[149,-38],[138,-35],[129,-32],[115,-34],[113,-26]];
-        const P_INDONESIA = [[95,6],[106,-6],[115,-8],[120,-5],[118,4],[104,4]];
-        const P_GREENLAND = [[-55,60],[-42,60],[-18,72],[-22,82],[-58,81],[-62,72]];
-
-        function classifyFacet(normal) {
-          const lat = Math.asin(Math.max(-1, Math.min(1, normal.y))) * (180 / Math.PI);
-          const lon = Math.atan2(normal.x, normal.z) * (180 / Math.PI);
-          const southIceWave = Math.sin(lon * 0.08) * 3.5 + Math.cos(lon * 0.13) * 2.5;
-          if (lat < -64 + southIceWave) return { type: 'polar', r: R_POLAR, color: new THREE.Color(0xdce4ee) };
-          if (pointInPoly(lon, lat, P_GREENLAND) || (lat > 74 + Math.sin(lon * 0.09) * 3.5 && lon > -65 && lon < 95)) {
-            return { type: 'polar', r: R_POLAR, color: new THREE.Color(0xe2e8f0) };
-          }
-          let isLand = false, region = '';
-          if (pointInPoly(lon, lat, P_AFRICA)) { isLand = true; region = 'africa'; }
-          else if (pointInPoly(lon, lat, P_MADAGASCAR)) { isLand = true; region = 'madagascar'; }
-          else if (pointInPoly(lon, lat, P_ARABIA)) { isLand = true; region = 'arabia'; }
-          else if (pointInPoly(lon, lat, P_EURASIA) || pointInPoly(lon, lat, P_UK_SCANDI)) { isLand = true; region = 'eurasia'; }
-          else if (pointInPoly(lon, lat, P_SOUTH_AMERICA) || pointInPoly(lon, lat, P_NORTH_AMERICA)) { isLand = true; region = 'americas'; }
-          else if (pointInPoly(lon, lat, P_AUSTRALIA) || pointInPoly(lon, lat, P_INDONESIA)) { isLand = true; region = 'islands'; }
-          if (!isLand) return { type: 'ocean' };
-
-          const colOliveYellow = new THREE.Color(0xb3b728);
-          const colYellowGreen = new THREE.Color(0x88b627);
-          const colLushGreen = new THREE.Color(0x4ea826);
-          const colDeepGreen = new THREE.Color(0x3f9621);
-          const c = new THREE.Color();
-          const facetVar = (Math.sin(lon * 0.37 + lat * 0.53) * 0.5 + 0.5) * 0.035 - 0.017;
-          if (region === 'africa') {
-            if (lat > 7) { const t = Math.min(1, Math.max(0, (lat - 7) / 14)); c.copy(colYellowGreen).lerp(colOliveYellow, t); }
-            else { const t = Math.min(1, Math.max(0, (lat + 14) / 21)); c.copy(colLushGreen).lerp(colYellowGreen, t); }
-          } else if (region === 'arabia') {
-            const t = Math.min(1, Math.max(0, (lat - 14) / 18));
-            c.copy(colOliveYellow).lerp(colYellowGreen, t * 0.45);
-          } else if (region === 'madagascar') {
-            c.copy(colLushGreen).lerp(colYellowGreen, 0.25);
-          } else if (region === 'eurasia') {
-            if (lat < 36 && lon > 30 && lon < 72) c.copy(colOliveYellow).lerp(colYellowGreen, 0.55);
-            else if (lat > 43) c.copy(colLushGreen).lerp(colYellowGreen, 0.18);
-            else c.copy(colLushGreen).lerp(colYellowGreen, 0.35);
-          } else {
-            c.copy(colLushGreen).lerp(colDeepGreen, 0.25);
-          }
-          c.offsetHSL(0, 0, facetVar);
-          return { type: 'land', r: R_LAND, color: c };
-        }
-
-        let earthLandMat;
-        {
-          const baseIco = new THREE.IcosahedronGeometry(1, 4).toNonIndexed();
-          const posAttr = baseIco.attributes.position;
-          const oceanPositions = [], oceanColors = [], landPositions = [], landColors = [];
-          const vA = new THREE.Vector3(), vB = new THREE.Vector3(), vC = new THREE.Vector3(), centroid = new THREE.Vector3();
-          const numTris = posAttr.count / 3;
-          const triData = new Array(numTris);
-          const edgeMap = new Map();
-          const vertKey = v => `${Math.round(v.x * 10000)},${Math.round(v.y * 10000)},${Math.round(v.z * 10000)}`;
-          const makeEdgeKey = (k1, k2) => (k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`);
-
-          for (let t = 0; t < numTris; t++) {
-            const i = t * 3;
-            vA.fromBufferAttribute(posAttr, i).normalize();
-            vB.fromBufferAttribute(posAttr, i + 1).normalize();
-            vC.fromBufferAttribute(posAttr, i + 2).normalize();
-            centroid.copy(vA).add(vB).add(vC).normalize();
-
-            const latNorm = centroid.y;
-            const lightFactor = Math.max(0, centroid.x * 0.25 + centroid.y * 0.35 + centroid.z * 0.5);
-            const oceanCol = new THREE.Color(0x0077e6);
-            const cyanCol = new THREE.Color(0x00b4ff);
-            const deepCol = new THREE.Color(0x0052cc);
-            const mixCyan = Math.max(0, Math.min(1, (latNorm + 0.35) * 0.65 + lightFactor * 0.35));
-            oceanCol.lerp(cyanCol, mixCyan);
-            if (latNorm < -0.25) oceanCol.lerp(deepCol, Math.min(1, (-latNorm - 0.25) * 0.9));
-            const fJitter = (Math.sin(t * 12.9898) * 43758.5453 % 1) * 0.035 - 0.017;
-            oceanCol.offsetHSL(0, 0, fJitter);
-
-            oceanPositions.push(vA.x * R_OCEAN, vA.y * R_OCEAN, vA.z * R_OCEAN, vB.x * R_OCEAN, vB.y * R_OCEAN, vB.z * R_OCEAN, vC.x * R_OCEAN, vC.y * R_OCEAN, vC.z * R_OCEAN);
-            for (let k = 0; k < 3; k++) oceanColors.push(oceanCol.r, oceanCol.g, oceanCol.b);
-
-            const info = classifyFacet(centroid);
-            triData[t] = { vA: vA.clone(), vB: vB.clone(), vC: vC.clone(), info };
-
-            const kA = vertKey(vA), kB = vertKey(vB), kC = vertKey(vC);
-            [[kA, kB], [kB, kC], [kC, kA]].forEach(([k1, k2]) => {
-              const ek = makeEdgeKey(k1, k2);
-              if (!edgeMap.has(ek)) edgeMap.set(ek, []);
-              edgeMap.get(ek).push({ t });
-            });
+          function showToast(msg) {
+            const t = $("#toast");
+            t.textContent = msg;
+            t.style.display = "block";
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => {
+              t.style.display = "none";
+            }, 3200);
           }
 
-          const pushTri = (p1, p2, p3, col) => {
-            landPositions.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z);
-            for (let k = 0; k < 3; k++) landColors.push(col.r, col.g, col.b);
-          };
+          // ---------- Pencahayaan (di dalam grup, jadi ikut gambar target) ----------
+          const sunPos = new THREE.Vector3(-12, 7, 0);
+          const sunLight = new THREE.DirectionalLight(0xffe9a8, 1.5);
+          sunLight.position.copy(sunPos);
+          root.add(sunLight, sunLight.target);
+          const frontLight = new THREE.DirectionalLight(0xdbeafe, 0.8);
+          frontLight.position.set(10, 5, 16);
+          root.add(frontLight, frontLight.target);
+          root.add(new THREE.HemisphereLight(0x88ccff, 0x102344, 0.8));
 
-          for (let t = 0; t < numTris; t++) {
-            const { vA, vB, vC, info } = triData[t];
-            if (info.type === 'ocean') continue;
-            const rTop = info.r;
-            const topA = vA.clone().multiplyScalar(rTop), topB = vB.clone().multiplyScalar(rTop), topC = vC.clone().multiplyScalar(rTop);
-            pushTri(topA, topB, topC, info.color);
+          // ---------- Sistem label 2D ----------
+          const labels2D = [];
+          const c2d = $("#c2d");
+          function createLabel2D(html, cls, x = 0, y = 0, z = 0) {
+            const el = document.createElement("div");
+            el.className = cls;
+            el.innerHTML = html;
+            c2d.appendChild(el);
+            const obj = new THREE.Object3D();
+            obj.position.set(x, y, z);
+            labels2D.push({ el, obj });
+            return obj;
+          }
 
-            const kA = vertKey(vA), kB = vertKey(vB), kC = vertKey(vC);
-            const triEdges = [[kA, kB, vA, vB, topA, topB], [kB, kC, vB, vC, topB, topC], [kC, kA, vC, vA, topC, topA]];
-            const sideColor = info.color.clone().multiplyScalar(0.76);
-            for (const [k1, k2, u1, u2, t1, t2] of triEdges) {
-              const shared = edgeMap.get(makeEdgeKey(k1, k2)) || [];
-              const neighbor = shared.find(item => item.t !== t);
-              const neighborType = neighbor ? triData[neighbor.t].info.type : 'ocean';
-              if (neighborType === 'ocean') {
-                const b1 = u1.clone().multiplyScalar(R_OCEAN * 0.996);
-                const b2 = u2.clone().multiplyScalar(R_OCEAN * 0.996);
-                pushTri(t1, b1, b2, sideColor);
-                pushTri(t1, b2, t2, sideColor);
+          // ---------- Bumi low-poly ----------
+          const R_OCEAN = 5.0,
+            R_LAND = 5.21,
+            R_POLAR = 5.19;
+          const earthGroup = new THREE.Group();
+          earthGroup.rotation.y = -0.32;
+          earthGroup.rotation.x = 0.08;
+          root.add(earthGroup);
+
+          function pointInPoly(lon, lat, poly) {
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+              const xi = poly[i][0],
+                yi = poly[i][1],
+                xj = poly[j][0],
+                yj = poly[j][1];
+              const intersect =
+                yi > lat !== yj > lat &&
+                lon < ((xj - xi) * (lat - yi)) / (yj - yi || 1e-7) + xi;
+              if (intersect) inside = !inside;
+            }
+            return inside;
+          }
+
+          const P_AFRICA = [
+            [-18, 15],
+            [-17, 22],
+            [-13, 28],
+            [-6, 36],
+            [10, 37],
+            [12, 33],
+            [25, 32],
+            [33, 31],
+            [39, 21],
+            [43, 12],
+            [51, 12],
+            [49, 4],
+            [41, -3],
+            [40, -11],
+            [35, -18],
+            [33, -26],
+            [27, -34],
+            [18, -35],
+            [14, -22],
+            [12, -15],
+            [13, -6],
+            [9, -2],
+            [8, 4],
+            [2, 6],
+            [-8, 4],
+            [-13, 8],
+          ];
+          const P_MADAGASCAR = [
+            [43, -13],
+            [48, -12],
+            [50, -15],
+            [49, -21],
+            [47, -26],
+            [43, -25],
+            [43, -18],
+          ];
+          const P_ARABIA = [
+            [34, 30],
+            [36, 37],
+            [46, 31],
+            [51, 29],
+            [57, 24],
+            [60, 21],
+            [55, 16],
+            [45, 12],
+            [41, 15],
+            [35, 27],
+          ];
+          const P_EURASIA = [
+            [-10, 36],
+            [-9, 43],
+            [-2, 44],
+            [-5, 48],
+            [3, 51],
+            [8, 55],
+            [6, 62],
+            [18, 70],
+            [32, 71],
+            [65, 72],
+            [105, 73],
+            [145, 66],
+            [165, 60],
+            [142, 48],
+            [132, 40],
+            [122, 31],
+            [118, 22],
+            [109, 18],
+            [104, 10],
+            [100, 14],
+            [96, 16],
+            [88, 22],
+            [80, 15],
+            [77, 8],
+            [72, 18],
+            [67, 25],
+            [57, 26],
+            [49, 30],
+            [42, 37],
+            [35, 36],
+            [27, 38],
+            [26, 42],
+            [23, 37],
+            [19, 40],
+            [16, 38],
+            [13, 44],
+            [9, 44],
+            [5, 43],
+            [0, 38],
+            [-5, 36],
+          ];
+          const P_UK_SCANDI = [
+            [-9, 51],
+            [-6, 59],
+            [1, 58],
+            [2, 51],
+          ];
+          const P_SOUTH_AMERICA = [
+            [-81, 10],
+            [-74, 12],
+            [-61, 10],
+            [-50, 1],
+            [-34, -6],
+            [-36, -15],
+            [-40, -22],
+            [-48, -28],
+            [-54, -35],
+            [-64, -44],
+            [-68, -55],
+            [-74, -52],
+            [-75, -40],
+            [-71, -30],
+            [-71, -18],
+            [-77, -11],
+            [-82, -4],
+            [-78, 5],
+          ];
+          const P_NORTH_AMERICA = [
+            [-165, 64],
+            [-140, 70],
+            [-95, 71],
+            [-75, 65],
+            [-55, 52],
+            [-65, 44],
+            [-76, 35],
+            [-81, 25],
+            [-84, 30],
+            [-96, 28],
+            [-98, 19],
+            [-83, 9],
+            [-78, 8],
+            [-86, 12],
+            [-96, 15],
+            [-106, 22],
+            [-115, 32],
+            [-125, 42],
+            [-132, 55],
+            [-152, 60],
+          ];
+          const P_AUSTRALIA = [
+            [114, -22],
+            [122, -16],
+            [132, -12],
+            [142, -11],
+            [150, -20],
+            [153, -28],
+            [149, -38],
+            [138, -35],
+            [129, -32],
+            [115, -34],
+            [113, -26],
+          ];
+          const P_INDONESIA = [
+            [95, 6],
+            [106, -6],
+            [115, -8],
+            [120, -5],
+            [118, 4],
+            [104, 4],
+          ];
+          const P_GREENLAND = [
+            [-55, 60],
+            [-42, 60],
+            [-18, 72],
+            [-22, 82],
+            [-58, 81],
+            [-62, 72],
+          ];
+
+          function classifyFacet(normal) {
+            const lat =
+              Math.asin(Math.max(-1, Math.min(1, normal.y))) * (180 / Math.PI);
+            const lon = Math.atan2(normal.x, normal.z) * (180 / Math.PI);
+            const southIceWave =
+              Math.sin(lon * 0.08) * 3.5 + Math.cos(lon * 0.13) * 2.5;
+            if (lat < -64 + southIceWave)
+              return {
+                type: "polar",
+                r: R_POLAR,
+                color: new THREE.Color(0xdce4ee),
+              };
+            if (
+              pointInPoly(lon, lat, P_GREENLAND) ||
+              (lat > 74 + Math.sin(lon * 0.09) * 3.5 && lon > -65 && lon < 95)
+            ) {
+              return {
+                type: "polar",
+                r: R_POLAR,
+                color: new THREE.Color(0xe2e8f0),
+              };
+            }
+            let isLand = false,
+              region = "";
+            if (pointInPoly(lon, lat, P_AFRICA)) {
+              isLand = true;
+              region = "africa";
+            } else if (pointInPoly(lon, lat, P_MADAGASCAR)) {
+              isLand = true;
+              region = "madagascar";
+            } else if (pointInPoly(lon, lat, P_ARABIA)) {
+              isLand = true;
+              region = "arabia";
+            } else if (
+              pointInPoly(lon, lat, P_EURASIA) ||
+              pointInPoly(lon, lat, P_UK_SCANDI)
+            ) {
+              isLand = true;
+              region = "eurasia";
+            } else if (
+              pointInPoly(lon, lat, P_SOUTH_AMERICA) ||
+              pointInPoly(lon, lat, P_NORTH_AMERICA)
+            ) {
+              isLand = true;
+              region = "americas";
+            } else if (
+              pointInPoly(lon, lat, P_AUSTRALIA) ||
+              pointInPoly(lon, lat, P_INDONESIA)
+            ) {
+              isLand = true;
+              region = "islands";
+            }
+            if (!isLand) return { type: "ocean" };
+
+            const colOliveYellow = new THREE.Color(0xb3b728);
+            const colYellowGreen = new THREE.Color(0x88b627);
+            const colLushGreen = new THREE.Color(0x4ea826);
+            const colDeepGreen = new THREE.Color(0x3f9621);
+            const c = new THREE.Color();
+            const facetVar =
+              (Math.sin(lon * 0.37 + lat * 0.53) * 0.5 + 0.5) * 0.035 - 0.017;
+            if (region === "africa") {
+              if (lat > 7) {
+                const t = Math.min(1, Math.max(0, (lat - 7) / 14));
+                c.copy(colYellowGreen).lerp(colOliveYellow, t);
+              } else {
+                const t = Math.min(1, Math.max(0, (lat + 14) / 21));
+                c.copy(colLushGreen).lerp(colYellowGreen, t);
+              }
+            } else if (region === "arabia") {
+              const t = Math.min(1, Math.max(0, (lat - 14) / 18));
+              c.copy(colOliveYellow).lerp(colYellowGreen, t * 0.45);
+            } else if (region === "madagascar") {
+              c.copy(colLushGreen).lerp(colYellowGreen, 0.25);
+            } else if (region === "eurasia") {
+              if (lat < 36 && lon > 30 && lon < 72)
+                c.copy(colOliveYellow).lerp(colYellowGreen, 0.55);
+              else if (lat > 43)
+                c.copy(colLushGreen).lerp(colYellowGreen, 0.18);
+              else c.copy(colLushGreen).lerp(colYellowGreen, 0.35);
+            } else {
+              c.copy(colLushGreen).lerp(colDeepGreen, 0.25);
+            }
+            c.offsetHSL(0, 0, facetVar);
+            return { type: "land", r: R_LAND, color: c };
+          }
+
+          let earthLandMat;
+          {
+            const baseIco = new THREE.IcosahedronGeometry(1, 4).toNonIndexed();
+            const posAttr = baseIco.attributes.position;
+            const oceanPositions = [],
+              oceanColors = [],
+              landPositions = [],
+              landColors = [];
+            const vA = new THREE.Vector3(),
+              vB = new THREE.Vector3(),
+              vC = new THREE.Vector3(),
+              centroid = new THREE.Vector3();
+            const numTris = posAttr.count / 3;
+            const triData = new Array(numTris);
+            const edgeMap = new Map();
+            const vertKey = (v) =>
+              `${Math.round(v.x * 10000)},${Math.round(
+                v.y * 10000
+              )},${Math.round(v.z * 10000)}`;
+            const makeEdgeKey = (k1, k2) =>
+              k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
+
+            for (let t = 0; t < numTris; t++) {
+              const i = t * 3;
+              vA.fromBufferAttribute(posAttr, i).normalize();
+              vB.fromBufferAttribute(posAttr, i + 1).normalize();
+              vC.fromBufferAttribute(posAttr, i + 2).normalize();
+              centroid.copy(vA).add(vB).add(vC).normalize();
+
+              const latNorm = centroid.y;
+              const lightFactor = Math.max(
+                0,
+                centroid.x * 0.25 + centroid.y * 0.35 + centroid.z * 0.5
+              );
+              const oceanCol = new THREE.Color(0x0077e6);
+              const cyanCol = new THREE.Color(0x00b4ff);
+              const deepCol = new THREE.Color(0x0052cc);
+              const mixCyan = Math.max(
+                0,
+                Math.min(1, (latNorm + 0.35) * 0.65 + lightFactor * 0.35)
+              );
+              oceanCol.lerp(cyanCol, mixCyan);
+              if (latNorm < -0.25)
+                oceanCol.lerp(deepCol, Math.min(1, (-latNorm - 0.25) * 0.9));
+              const fJitter =
+                ((Math.sin(t * 12.9898) * 43758.5453) % 1) * 0.035 - 0.017;
+              oceanCol.offsetHSL(0, 0, fJitter);
+
+              oceanPositions.push(
+                vA.x * R_OCEAN,
+                vA.y * R_OCEAN,
+                vA.z * R_OCEAN,
+                vB.x * R_OCEAN,
+                vB.y * R_OCEAN,
+                vB.z * R_OCEAN,
+                vC.x * R_OCEAN,
+                vC.y * R_OCEAN,
+                vC.z * R_OCEAN
+              );
+              for (let k = 0; k < 3; k++)
+                oceanColors.push(oceanCol.r, oceanCol.g, oceanCol.b);
+
+              const info = classifyFacet(centroid);
+              triData[t] = {
+                vA: vA.clone(),
+                vB: vB.clone(),
+                vC: vC.clone(),
+                info,
+              };
+
+              const kA = vertKey(vA),
+                kB = vertKey(vB),
+                kC = vertKey(vC);
+              [
+                [kA, kB],
+                [kB, kC],
+                [kC, kA],
+              ].forEach(([k1, k2]) => {
+                const ek = makeEdgeKey(k1, k2);
+                if (!edgeMap.has(ek)) edgeMap.set(ek, []);
+                edgeMap.get(ek).push({ t });
+              });
+            }
+
+            const pushTri = (p1, p2, p3, col) => {
+              landPositions.push(
+                p1.x,
+                p1.y,
+                p1.z,
+                p2.x,
+                p2.y,
+                p2.z,
+                p3.x,
+                p3.y,
+                p3.z
+              );
+              for (let k = 0; k < 3; k++) landColors.push(col.r, col.g, col.b);
+            };
+
+            for (let t = 0; t < numTris; t++) {
+              const { vA, vB, vC, info } = triData[t];
+              if (info.type === "ocean") continue;
+              const rTop = info.r;
+              const topA = vA.clone().multiplyScalar(rTop),
+                topB = vB.clone().multiplyScalar(rTop),
+                topC = vC.clone().multiplyScalar(rTop);
+              pushTri(topA, topB, topC, info.color);
+
+              const kA = vertKey(vA),
+                kB = vertKey(vB),
+                kC = vertKey(vC);
+              const triEdges = [
+                [kA, kB, vA, vB, topA, topB],
+                [kB, kC, vB, vC, topB, topC],
+                [kC, kA, vC, vA, topC, topA],
+              ];
+              const sideColor = info.color.clone().multiplyScalar(0.76);
+              for (const [k1, k2, u1, u2, t1, t2] of triEdges) {
+                const shared = edgeMap.get(makeEdgeKey(k1, k2)) || [];
+                const neighbor = shared.find((item) => item.t !== t);
+                const neighborType = neighbor
+                  ? triData[neighbor.t].info.type
+                  : "ocean";
+                if (neighborType === "ocean") {
+                  const b1 = u1.clone().multiplyScalar(R_OCEAN * 0.996);
+                  const b2 = u2.clone().multiplyScalar(R_OCEAN * 0.996);
+                  pushTri(t1, b1, b2, sideColor);
+                  pushTri(t1, b2, t2, sideColor);
+                }
               }
             }
+
+            const oceanGeo = new THREE.BufferGeometry();
+            oceanGeo.setAttribute(
+              "position",
+              new THREE.Float32BufferAttribute(oceanPositions, 3)
+            );
+            oceanGeo.setAttribute(
+              "color",
+              new THREE.Float32BufferAttribute(oceanColors, 3)
+            );
+            oceanGeo.computeVertexNormals();
+            earthGroup.add(
+              new THREE.Mesh(
+                oceanGeo,
+                new THREE.MeshStandardMaterial({
+                  vertexColors: true,
+                  flatShading: true,
+                  roughness: 0.55,
+                  metalness: 0.08,
+                })
+              )
+            );
+
+            const landGeo = new THREE.BufferGeometry();
+            landGeo.setAttribute(
+              "position",
+              new THREE.Float32BufferAttribute(landPositions, 3)
+            );
+            landGeo.setAttribute(
+              "color",
+              new THREE.Float32BufferAttribute(landColors, 3)
+            );
+            landGeo.computeVertexNormals();
+            earthLandMat = new THREE.MeshStandardMaterial({
+              vertexColors: true,
+              flatShading: true,
+              roughness: 0.78,
+              metalness: 0.02,
+            });
+            earthGroup.add(new THREE.Mesh(landGeo, earthLandMat));
           }
 
-          const oceanGeo = new THREE.BufferGeometry();
-          oceanGeo.setAttribute('position', new THREE.Float32BufferAttribute(oceanPositions, 3));
-          oceanGeo.setAttribute('color', new THREE.Float32BufferAttribute(oceanColors, 3));
-          oceanGeo.computeVertexNormals();
-          earthGroup.add(new THREE.Mesh(oceanGeo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.55, metalness: 0.08 })));
+          // ---------- Atmosfer, ozon, Matahari ----------
+          root.add(
+            new THREE.Mesh(
+              new THREE.SphereGeometry(5.55, 48, 32),
+              new THREE.MeshBasicMaterial({
+                color: 0x5aa9ff,
+                transparent: true,
+                opacity: 0.1,
+                depthWrite: false,
+              })
+            )
+          );
 
-          const landGeo = new THREE.BufferGeometry();
-          landGeo.setAttribute('position', new THREE.Float32BufferAttribute(landPositions, 3));
-          landGeo.setAttribute('color', new THREE.Float32BufferAttribute(landColors, 3));
-          landGeo.computeVertexNormals();
-          earthLandMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.78, metalness: 0.02 });
-          earthGroup.add(new THREE.Mesh(landGeo, earthLandMat));
-        }
-
-        // ---------- Atmosfer, ozon, Matahari ----------
-        root.add(new THREE.Mesh(
-          new THREE.SphereGeometry(5.55, 48, 32),
-          new THREE.MeshBasicMaterial({ color: 0x5aa9ff, transparent: true, opacity: 0.1, depthWrite: false })
-        ));
-
-        // Pendaran atmosfer (Fresnel). Potongan logdepthbuf agar cocok dengan renderer logarithmicDepthBuffer
-        root.add(new THREE.Mesh(
-          new THREE.SphereGeometry(6.05, 64, 48),
-          new THREE.ShaderMaterial({
-            vertexShader: `
+          // Pendaran atmosfer (Fresnel). Potongan logdepthbuf agar cocok dengan renderer logarithmicDepthBuffer
+          root.add(
+            new THREE.Mesh(
+              new THREE.SphereGeometry(6.05, 64, 48),
+              new THREE.ShaderMaterial({
+                vertexShader: `
               #include <common>
               #include <logdepthbuf_pars_vertex>
               varying vec3 vNormal;
@@ -596,7 +1709,7 @@
                 #include <logdepthbuf_vertex>
               }
             `,
-            fragmentShader: `
+                fragmentShader: `
               #include <common>
               #include <logdepthbuf_pars_fragment>
               varying vec3 vNormal;
@@ -606,722 +1719,1211 @@
                 gl_FragColor = vec4(0.3, 0.62, 1.0, 1.0) * intensity * 2.0;
               }
             `,
-            side: THREE.BackSide,
-            blending: THREE.AdditiveBlending,
-            transparent: true,
-            depthWrite: false
-          })
-        ));
+                side: THREE.BackSide,
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                depthWrite: false,
+              })
+            )
+          );
 
-        const ozoneShell = new THREE.Mesh(
-          new THREE.IcosahedronGeometry(6.6, 3),
-          new THREE.MeshStandardMaterial({ color: 0x7df9c0, emissive: 0x2fbf8a, emissiveIntensity: 0.5, transparent: true, opacity: 0.15, flatShading: true, side: THREE.DoubleSide, depthWrite: false })
-        );
-        root.add(ozoneShell);
+          const ozoneShell = new THREE.Mesh(
+            new THREE.IcosahedronGeometry(6.6, 3),
+            new THREE.MeshStandardMaterial({
+              color: 0x7df9c0,
+              emissive: 0x2fbf8a,
+              emissiveIntensity: 0.5,
+              transparent: true,
+              opacity: 0.15,
+              flatShading: true,
+              side: THREE.DoubleSide,
+              depthWrite: false,
+            })
+          );
+          root.add(ozoneShell);
 
-        const dirAtRadius = (x, y, z, r) => new THREE.Vector3(x, y, z).normalize().multiplyScalar(r);
-        {
-          const ozLbl = createLabel2D('Lapisan Ozon', 'lbl oz');
-          ozLbl.position.copy(dirAtRadius(0.5, 0.75, 0.45, 6.95));
-          root.add(ozLbl);
-          const trLbl = createLabel2D('Troposfer', 'lbl tr');
-          trLbl.position.copy(dirAtRadius(0.95, -0.2, 0.35, 5.75));
-          root.add(trLbl);
-        }
+          const dirAtRadius = (x, y, z, r) =>
+            new THREE.Vector3(x, y, z).normalize().multiplyScalar(r);
+          {
+            const ozLbl = createLabel2D("Lapisan Ozon", "lbl oz");
+            ozLbl.position.copy(dirAtRadius(0.5, 0.75, 0.45, 6.95));
+            root.add(ozLbl);
+            const trLbl = createLabel2D("Troposfer", "lbl tr");
+            trLbl.position.copy(dirAtRadius(0.95, -0.2, 0.35, 5.75));
+            root.add(trLbl);
+          }
 
-        const sunMesh = new THREE.Mesh(
-          new THREE.IcosahedronGeometry(1.7, 2),
-          new THREE.MeshStandardMaterial({ color: 0xffc333, emissive: 0xff9910, emissiveIntensity: 1.6, flatShading: true })
-        );
-        sunMesh.position.copy(sunPos);
-        root.add(sunMesh);
+          const sunMesh = new THREE.Mesh(
+            new THREE.IcosahedronGeometry(1.7, 2),
+            new THREE.MeshStandardMaterial({
+              color: 0xffc333,
+              emissive: 0xff9910,
+              emissiveIntensity: 1.6,
+              flatShading: true,
+            })
+          );
+          sunMesh.position.copy(sunPos);
+          root.add(sunMesh);
 
-        function createSunGlowTexture() {
-          const c = document.createElement('canvas');
-          c.width = c.height = 128;
-          const ctx = c.getContext('2d');
-          const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-          g.addColorStop(0, 'rgba(255,230,150,1)');
-          g.addColorStop(0.3, 'rgba(255,170,50,.5)');
-          g.addColorStop(1, 'rgba(255,120,0,0)');
-          ctx.fillStyle = g;
-          ctx.fillRect(0, 0, 128, 128);
-          return new THREE.CanvasTexture(c);
-        }
-        const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: createSunGlowTexture(), blending: THREE.AdditiveBlending, depthWrite: false }));
-        sunGlow.scale.set(10, 10, 1);
-        sunGlow.position.copy(sunPos);
-        root.add(sunGlow);
+          function createSunGlowTexture() {
+            const c = document.createElement("canvas");
+            c.width = c.height = 128;
+            const ctx = c.getContext("2d");
+            const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+            g.addColorStop(0, "rgba(255,230,150,1)");
+            g.addColorStop(0.3, "rgba(255,170,50,.5)");
+            g.addColorStop(1, "rgba(255,120,0,0)");
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, 128, 128);
+            return new THREE.CanvasTexture(c);
+          }
+          const sunGlow = new THREE.Sprite(
+            new THREE.SpriteMaterial({
+              map: createSunGlowTexture(),
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+            })
+          );
+          sunGlow.scale.set(10, 10, 1);
+          sunGlow.position.copy(sunPos);
+          root.add(sunGlow);
 
-        root.add(createLabel2D('Radiasi Matahari<br><small>gelombang pendek</small>', 'lbl sunl', sunPos.x, sunPos.y + 3, 0));
+          root.add(
+            createLabel2D(
+              "Radiasi Matahari<br><small>gelombang pendek</small>",
+              "lbl sunl",
+              sunPos.x,
+              sunPos.y + 3,
+              0
+            )
+          );
 
-        // ---------- Sinar matahari ----------
-        const solarBeams = [];
-        function addSolarBeam(key, hexColor, radius, startPt, endPt, mult, withPackets) {
-          const diff = endPt.clone().sub(startPt);
-          const len = diff.length();
-          const mat = new THREE.MeshBasicMaterial({ color: hexColor, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
-          const beam = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, len, 8, 1, true), mat);
-          beam.position.copy(startPt).addScaledVector(diff, 0.5);
-          beam.quaternion.setFromUnitVectors(UP, diff.clone().normalize());
-          root.add(beam);
+          // ---------- Sinar matahari ----------
+          const solarBeams = [];
+          function addSolarBeam(
+            key,
+            hexColor,
+            radius,
+            startPt,
+            endPt,
+            mult,
+            withPackets
+          ) {
+            const diff = endPt.clone().sub(startPt);
+            const len = diff.length();
+            const mat = new THREE.MeshBasicMaterial({
+              color: hexColor,
+              transparent: true,
+              opacity: 0.6,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+            });
+            const beam = new THREE.Mesh(
+              new THREE.CylinderGeometry(radius, radius, len, 8, 1, true),
+              mat
+            );
+            beam.position.copy(startPt).addScaledVector(diff, 0.5);
+            beam.quaternion.setFromUnitVectors(UP, diff.clone().normalize());
+            root.add(beam);
 
-          const pmat = new THREE.MeshBasicMaterial({ color: new THREE.Color(hexColor).lerp(new THREE.Color(1, 1, 1), 0.5), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-          const pks = [];
-          if (withPackets) {
-            for (let i = 0; i < 3; i++) {
-              const pk = new THREE.Mesh(new THREE.IcosahedronGeometry(radius * 2.4, 0), pmat);
-              root.add(pk);
-              pks.push(pk);
+            const pmat = new THREE.MeshBasicMaterial({
+              color: new THREE.Color(hexColor).lerp(
+                new THREE.Color(1, 1, 1),
+                0.5
+              ),
+              transparent: true,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+            });
+            const pks = [];
+            if (withPackets) {
+              for (let i = 0; i < 3; i++) {
+                const pk = new THREE.Mesh(
+                  new THREE.IcosahedronGeometry(radius * 2.4, 0),
+                  pmat
+                );
+                root.add(pk);
+                pks.push(pk);
+              }
+            }
+            solarBeams.push({
+              key,
+              mat,
+              pmat,
+              a: startPt,
+              b: endPt,
+              mult,
+              pks,
+            });
+          }
+          const sphereIntersect = (origin, dir, r) => {
+            const b = origin.dot(dir);
+            const c = origin.dot(origin) - r * r;
+            return origin
+              .clone()
+              .addScaledVector(dir, -b - Math.sqrt(b * b - c));
+          };
+          const targetSurface = (off) =>
+            new THREE.Vector3(-0.86, 0.5, 0)
+              .add(new THREE.Vector3(...off))
+              .normalize()
+              .multiplyScalar(5.18);
+
+          for (const [key, col, rad, off] of [
+            ["uvc", 0xffe14d, 0.05, [0, 0.2, 0.1]],
+            ["uvb", 0x4db3ff, 0.05, [0, 0, 0.3]],
+            ["uva", 0xb35cff, 0.06, [0, -0.15, 0.5]],
+            ["sw", 0xffa233, 0.12, [0.05, -0.32, 0.75]],
+          ]) {
+            const s = sunPos.clone().add(new THREE.Vector3(0.6, off[1] * 3, 0));
+            const e = targetSurface(off);
+            const dir = e.clone().sub(s).normalize();
+            if (key === "uvc") {
+              addSolarBeam(
+                key,
+                col,
+                rad,
+                s,
+                sphereIntersect(s, dir, 6.6),
+                1,
+                1
+              );
+            } else if (key === "uvb") {
+              const hit = sphereIntersect(s, dir, 6.6);
+              addSolarBeam(key, col, rad, s, hit, 1, 1);
+              addSolarBeam(key, col, rad * 0.7, hit, e, 0.3, 0);
+            } else {
+              addSolarBeam(key, col, rad, s, e, 1, 1);
             }
           }
-          solarBeams.push({ key, mat, pmat, a: startPt, b: endPt, mult, pks });
-        }
-        const sphereIntersect = (origin, dir, r) => {
-          const b = origin.dot(dir);
-          const c = origin.dot(origin) - r * r;
-          return origin.clone().addScaledVector(dir, -b - Math.sqrt(b * b - c));
-        };
-        const targetSurface = off => new THREE.Vector3(-0.86, 0.5, 0).add(new THREE.Vector3(...off)).normalize().multiplyScalar(5.18);
 
-        for (const [key, col, rad, off] of [
-          ['uvc', 0xffe14d, 0.05, [0, 0.2, 0.1]],
-          ['uvb', 0x4db3ff, 0.05, [0, 0, 0.3]],
-          ['uva', 0xb35cff, 0.06, [0, -0.15, 0.5]],
-          ['sw',  0xffa233, 0.12, [0.05, -0.32, 0.75]]
-        ]) {
-          const s = sunPos.clone().add(new THREE.Vector3(0.6, off[1] * 3, 0));
-          const e = targetSurface(off);
-          const dir = e.clone().sub(s).normalize();
-          if (key === 'uvc') {
-            addSolarBeam(key, col, rad, s, sphereIntersect(s, dir, 6.6), 1, 1);
-          } else if (key === 'uvb') {
-            const hit = sphereIntersect(s, dir, 6.6);
-            addSolarBeam(key, col, rad, s, hit, 1, 1);
-            addSolarBeam(key, col, rad * 0.7, hit, e, 0.3, 0);
-          } else {
-            addSolarBeam(key, col, rad, s, e, 1, 1);
+          // ---------- Panah inframerah ----------
+          const irUpMat = new THREE.MeshBasicMaterial({
+            color: 0xff3322,
+            transparent: true,
+            opacity: 0.85,
+          });
+          const irDownMat = new THREE.MeshBasicMaterial({
+            color: 0xff9f20,
+            transparent: true,
+            opacity: 0.85,
+          });
+          const arrowTailGeo = new THREE.CylinderGeometry(
+            0.025,
+            0.025,
+            0.5,
+            6
+          ).translate(0, 0.25, 0);
+          const arrowHeadGeo = new THREE.ConeGeometry(0.09, 0.2, 6).translate(
+            0,
+            0.6,
+            0
+          );
+          const irWaves = [];
+          const clickableObjects = [sunMesh];
+          let reflectChance = 0.3;
+
+          function resetIRWave(w) {
+            let dir;
+            do {
+              dir = new THREE.Vector3(
+                rand(-1, 1),
+                rand(-1, 1),
+                rand(-1, 1)
+              ).normalize();
+            } while (dir.z < 0.15 || dir.y < -0.5);
+            w.d = dir;
+            w.t1 = new THREE.Vector3().crossVectors(dir, UP).normalize();
+            w.s = 0;
+            w.ph = rand(0, 6.28);
+            w.refl = Math.random() < reflectChance;
+            w.v = rand(0.16, 0.26);
           }
-        }
+          for (let i = 0; i < 56; i++) {
+            const g = new THREE.Group();
+            const tail = new THREE.Mesh(arrowTailGeo, irUpMat);
+            const head = new THREE.Mesh(arrowHeadGeo, irUpMat);
+            tail.userData.hs = head.userData.hs = 1;
+            g.add(tail, head);
+            root.add(g);
+            clickableObjects.push(tail, head);
+            const w = { g, tail, head, dn: false };
+            resetIRWave(w);
+            w.s = Math.random();
+            irWaves.push(w);
+          }
 
-        // ---------- Panah inframerah ----------
-        const irUpMat = new THREE.MeshBasicMaterial({ color: 0xff3322, transparent: true, opacity: 0.85 });
-        const irDownMat = new THREE.MeshBasicMaterial({ color: 0xff9f20, transparent: true, opacity: 0.85 });
-        const arrowTailGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.5, 6).translate(0, 0.25, 0);
-        const arrowHeadGeo = new THREE.ConeGeometry(0.09, 0.2, 6).translate(0, 0.6, 0);
-        const irWaves = [];
-        const clickableObjects = [sunMesh];
-        let reflectChance = 0.3;
-
-        function resetIRWave(w) {
-          let dir;
-          do { dir = new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).normalize(); } while (dir.z < 0.15 || dir.y < -0.5);
-          w.d = dir;
-          w.t1 = new THREE.Vector3().crossVectors(dir, UP).normalize();
-          w.s = 0;
-          w.ph = rand(0, 6.28);
-          w.refl = Math.random() < reflectChance;
-          w.v = rand(0.16, 0.26);
-        }
-        for (let i = 0; i < 56; i++) {
-          const g = new THREE.Group();
-          const tail = new THREE.Mesh(arrowTailGeo, irUpMat);
-          const head = new THREE.Mesh(arrowHeadGeo, irUpMat);
-          tail.userData.hs = head.userData.hs = 1;
-          g.add(tail, head);
-          root.add(g);
-          clickableObjects.push(tail, head);
-          const w = { g, tail, head, dn: false };
-          resetIRWave(w);
-          w.s = Math.random();
-          irWaves.push(w);
-        }
-
-        // ---------- Molekul gas rumah kaca ----------
-        const ATOM_SPECS = { C: [0x3b3b3b, 0.45], O: [0xe02020, 0.40], H: [0xf2f2f2, 0.27], N: [0x2a6bff, 0.40] };
-        const atomMats = {};
-        for (const k in ATOM_SPECS) {
-          atomMats[k] = new THREE.MeshStandardMaterial({ color: ATOM_SPECS[k][0], emissive: ATOM_SPECS[k][0], emissiveIntensity: 0, flatShading: true, roughness: 0.45 });
-        }
-        const bondMat = new THREE.MeshStandardMaterial({ color: 0xbbbbbb, flatShading: true });
-        const bondGeo = new THREE.CylinderGeometry(0.1, 0.1, 1, 6);
-
-        const MOLECULES = {
-          CO2: { l: 'CO₂', a: [['C', [0, 0, 0]], ['O', [-1.2, 0, 0]], ['O', [1.2, 0, 0]]], b: [[0, 1], [0, 2]] },
-          CH4: { l: 'CH₄', a: [['C', [0, 0, 0]], ['H', [0.8, 0.8, 0.8]], ['H', [0.8, -0.8, -0.8]], ['H', [-0.8, 0.8, -0.8]], ['H', [-0.8, -0.8, 0.8]]], b: [[0, 1], [0, 2], [0, 3], [0, 4]] },
-          N2O: { l: 'N₂O', a: [['N', [-1.2, 0, 0]], ['N', [0, 0, 0]], ['O', [1.2, 0, 0]]], b: [[0, 1], [1, 2]] },
-          H2O: { l: 'H₂O', a: [['O', [0, 0.2, 0]], ['H', [-0.85, -0.4, 0]], ['H', [0.85, -0.4, 0]]], b: [[0, 1], [0, 2]] },
-          O3:  { l: 'O₃',  a: [['O', [0, 0.45, 0]], ['O', [-1.05, -0.35, 0]], ['O', [1.05, -0.35, 0]]], b: [[0, 1], [0, 2]] }
-        };
-        function buildMolecule(type) {
-          const spec = MOLECULES[type];
-          const g = new THREE.Group();
-          const positions = spec.a.map(([el, coords]) => {
-            const m = new THREE.Mesh(new THREE.IcosahedronGeometry(ATOM_SPECS[el][1], 1), atomMats[el]);
-            m.position.set(...coords);
-            m.userData.hs = 2;
-            clickableObjects.push(m);
-            g.add(m);
-            return m.position;
-          });
-          spec.b.forEach(([i1, i2]) => {
-            const diff = positions[i2].clone().sub(positions[i1]);
-            const cyl = new THREE.Mesh(bondGeo, bondMat);
-            cyl.scale.y = diff.length();
-            cyl.position.copy(positions[i1]).addScaledVector(diff, 0.5);
-            cyl.quaternion.setFromUnitVectors(UP, diff.clone().normalize());
-            g.add(cyl);
-          });
-          g.scale.setScalar(0.42);
-          return g;
-        }
-        const molKeys = Object.keys(MOLECULES);
-        const ghgMolecules = [];
-        for (let i = 0; i < 28; i++) {
-          const key = molKeys[i % 5];
-          const g = buildMolecule(key);
-          let lon, lat;
-          if (i < 5) { lon = -0.9 + i * 0.45; lat = 0.5 + (i % 2) * 0.15; }
-          else { lon = rand(-1.45, 1.45); lat = rand(-0.4, 0.9); }
-          const item = {
-            g,
-            d: new THREE.Vector3(Math.sin(lon) * Math.cos(lat), Math.sin(lat), Math.cos(lon) * Math.cos(lat)),
-            r: i < 5 ? 6.15 : rand(5.9, 6.4),
-            ph: rand(0, 6.28),
-            sp: new THREE.Vector3(rand(0.1, 0.5), rand(0.2, 0.6), 0)
+          // ---------- Molekul gas rumah kaca ----------
+          const ATOM_SPECS = {
+            C: [0x3b3b3b, 0.45],
+            O: [0xe02020, 0.4],
+            H: [0xf2f2f2, 0.27],
+            N: [0x2a6bff, 0.4],
           };
-          if (i < 5) { item.lab = createLabel2D(MOLECULES[key].l, 'lbl'); root.add(item.lab); }
-          ghgMolecules.push(item);
-          root.add(g);
-        }
-
-        // ---------- Termometer ----------
-        const thermoGroup = new THREE.Group();
-        thermoGroup.position.set(10, -0.5, 0);
-        root.add(thermoGroup);
-        const bulbMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 2), new THREE.MeshStandardMaterial({ color: 0xe01818, emissive: 0x990000, flatShading: true }));
-        bulbMesh.position.y = -2.7;
-        const glassTube = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.25, 0.25, 6, 16, 1, true),
-          new THREE.MeshStandardMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0.25, roughness: 0.1, side: THREE.DoubleSide, depthWrite: false })
-        );
-        glassTube.position.y = 0.5;
-        const mercuryBar = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 1, 10).translate(0, 0.5, 0), bulbMesh.material);
-        mercuryBar.position.y = -2.6;
-        thermoGroup.add(glassTube, bulbMesh, mercuryBar);
-        for (let i = 0; i < 8; i++) {
-          const tick = new THREE.Mesh(new THREE.BoxGeometry(i % 2 ? 0.25 : 0.4, 0.04, 0.04), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-          tick.position.set(0.42, -2.2 + i * 0.7, 0);
-          thermoGroup.add(tick);
-        }
-        const tempLabel = createLabel2D('Suhu Bumi', 'lbl', 0, 4, 0);
-        thermoGroup.add(tempLabel);
-        thermoGroup.add(createLabel2D('🔥', 'lbl', 0, -3.8, 0));
-
-        // ---------- Data narasi ----------
-        const hotspotsData = [
-          {
-            t: 'Matahari sebagai Sumber Energi', mode: 'sun',
-            x: 'Matahari merupakan sumber energi utama bagi Bumi. Energi dari Matahari bergerak menuju Bumi dalam bentuk radiasi gelombang pendek.',
-            subs: [
-              ['uva', 'UVA', 'UVA merupakan jenis sinar ultraviolet yang paling banyak mencapai permukaan Bumi karena mampu melewati atmosfer. Paparan UVA dalam jumlah berlebih dapat menembus lapisan kulit lebih dalam dan menyebabkan penuaan dini serta kerusakan sel kulit.'],
-              ['uvb', 'UVB', 'UVB sebagian besar diserap oleh lapisan ozon, tetapi sebagian kecil masih dapat mencapai permukaan Bumi. UVB memiliki energi lebih besar dibandingkan UVA sehingga dapat menyebabkan kerusakan langsung pada sel kulit.'],
-              ['uvc', 'UVC', 'UVC memiliki energi paling tinggi dibandingkan UVA dan UVB. Namun, sebagian besar sinar UVC diserap oleh lapisan ozon sehingga tidak mencapai permukaan Bumi.']
-            ]
-          },
-          {
-            t: 'Radiasi Inframerah dari Bumi', mode: 'ir',
-            x: 'Setelah menyerap energi Matahari, permukaan Bumi menjadi lebih hangat. Permukaan Bumi kemudian melepaskan kembali energi tersebut dalam bentuk radiasi inframerah atau gelombang panjang. Radiasi inframerah bergerak dari permukaan Bumi menuju atmosfer. Proses ini merupakan bagian alami dari keseimbangan energi Bumi. Tanpa proses pelepasan panas ini, suhu Bumi akan menjadi terlalu tinggi.'
-          },
-          {
-            t: 'Gas Rumah Kaca', mode: 'ghg',
-            x: 'Gas rumah kaca merupakan komponen alami atmosfer yang membantu menjaga suhu Bumi. Gas ini menyerap sebagian radiasi inframerah yang dilepaskan permukaan Bumi dan mengembalikannya sehingga panas tetap berada di atmosfer. Namun, peningkatan jumlah gas rumah kaca akibat aktivitas manusia menyebabkan lebih banyak panas terperangkap dan berkontribusi terhadap pemanasan global.'
+          const atomMats = {};
+          for (const k in ATOM_SPECS) {
+            atomMats[k] = new THREE.MeshStandardMaterial({
+              color: ATOM_SPECS[k][0],
+              emissive: ATOM_SPECS[k][0],
+              emissiveIntensity: 0,
+              flatShading: true,
+              roughness: 0.45,
+            });
           }
-        ];
-        const simSteps = [
-          { n: 4, t: 'Radiasi Matahari Masuk Atmosfer', mode: 's1', x: 'Energi dari Matahari dalam bentuk radiasi gelombang pendek masuk ke atmosfer Bumi dan mencapai permukaan.' },
-          { n: 5, t: 'Permukaan Bumi Memancarkan Panas', mode: 's2', x: 'Permukaan Bumi yang hangat memancarkan kembali energi ke atmosfer dalam bentuk radiasi inframerah.' },
-          { n: 6, t: 'Penjebakan Panas oleh Gas Rumah Kaca', mode: 's3', x: 'Molekul gas rumah kaca seperti CO₂, CH₄, N₂O, H₂O, dan O₃ menyerap radiasi inframerah dan memantulkannya kembali ke Bumi.' }
-        ];
-        const MODES = {
-          free: { b: 0.65, ir: 0.85, g: 0, sp: 1.0 },
-          sun:  { b: 0.12, ir: 0.25, g: 0, sp: 1.0 },
-          ir:   { b: 0.20, ir: 1.00, g: 0, sp: 2.4 },
-          ghg:  { b: 0.20, ir: 1.00, g: 1, sp: 1.2 },
-          s1:   { b: 0.60, ir: 0.30, g: 0, sp: 1.0 },
-          s2:   { b: 0.20, ir: 1.00, g: 0, sp: 1.6 },
-          s3:   { b: 0.20, ir: 1.00, g: 1, sp: 1.2 }
-        };
+          const bondMat = new THREE.MeshStandardMaterial({
+            color: 0xbbbbbb,
+            flatShading: true,
+          });
+          const bondGeo = new THREE.CylinderGeometry(0.1, 0.1, 1, 6);
 
-        let curMode = 'free', activeSubKey = null, currentItem = null, stepIndex = -1, subIndex = 0, subTimer = null;
-        let gasLevel = 0, gasTarget = 0, ghgPulse = 0, tempVal = 0.25, lastTempHtml = '';
+          const MOLECULES = {
+            CO2: {
+              l: "CO₂",
+              a: [
+                ["C", [0, 0, 0]],
+                ["O", [-1.2, 0, 0]],
+                ["O", [1.2, 0, 0]],
+              ],
+              b: [
+                [0, 1],
+                [0, 2],
+              ],
+            },
+            CH4: {
+              l: "CH₄",
+              a: [
+                ["C", [0, 0, 0]],
+                ["H", [0.8, 0.8, 0.8]],
+                ["H", [0.8, -0.8, -0.8]],
+                ["H", [-0.8, 0.8, -0.8]],
+                ["H", [-0.8, -0.8, 0.8]],
+              ],
+              b: [
+                [0, 1],
+                [0, 2],
+                [0, 3],
+                [0, 4],
+              ],
+            },
+            N2O: {
+              l: "N₂O",
+              a: [
+                ["N", [-1.2, 0, 0]],
+                ["N", [0, 0, 0]],
+                ["O", [1.2, 0, 0]],
+              ],
+              b: [
+                [0, 1],
+                [1, 2],
+              ],
+            },
+            H2O: {
+              l: "H₂O",
+              a: [
+                ["O", [0, 0.2, 0]],
+                ["H", [-0.85, -0.4, 0]],
+                ["H", [0.85, -0.4, 0]],
+              ],
+              b: [
+                [0, 1],
+                [0, 2],
+              ],
+            },
+            O3: {
+              l: "O₃",
+              a: [
+                ["O", [0, 0.45, 0]],
+                ["O", [-1.05, -0.35, 0]],
+                ["O", [1.05, -0.35, 0]],
+              ],
+              b: [
+                [0, 1],
+                [0, 2],
+              ],
+            },
+          };
+          function buildMolecule(type) {
+            const spec = MOLECULES[type];
+            const g = new THREE.Group();
+            const positions = spec.a.map(([el, coords]) => {
+              const m = new THREE.Mesh(
+                new THREE.IcosahedronGeometry(ATOM_SPECS[el][1], 1),
+                atomMats[el]
+              );
+              m.position.set(...coords);
+              m.userData.hs = 2;
+              clickableObjects.push(m);
+              g.add(m);
+              return m.position;
+            });
+            spec.b.forEach(([i1, i2]) => {
+              const diff = positions[i2].clone().sub(positions[i1]);
+              const cyl = new THREE.Mesh(bondGeo, bondMat);
+              cyl.scale.y = diff.length();
+              cyl.position.copy(positions[i1]).addScaledVector(diff, 0.5);
+              cyl.quaternion.setFromUnitVectors(UP, diff.clone().normalize());
+              g.add(cyl);
+            });
+            g.scale.setScalar(0.42);
+            return g;
+          }
+          const molKeys = Object.keys(MOLECULES);
+          const ghgMolecules = [];
+          for (let i = 0; i < 28; i++) {
+            const key = molKeys[i % 5];
+            const g = buildMolecule(key);
+            let lon, lat;
+            if (i < 5) {
+              lon = -0.9 + i * 0.45;
+              lat = 0.5 + (i % 2) * 0.15;
+            } else {
+              lon = rand(-1.45, 1.45);
+              lat = rand(-0.4, 0.9);
+            }
+            const item = {
+              g,
+              d: new THREE.Vector3(
+                Math.sin(lon) * Math.cos(lat),
+                Math.sin(lat),
+                Math.cos(lon) * Math.cos(lat)
+              ),
+              r: i < 5 ? 6.15 : rand(5.9, 6.4),
+              ph: rand(0, 6.28),
+              sp: new THREE.Vector3(rand(0.1, 0.5), rand(0.2, 0.6), 0),
+            };
+            if (i < 5) {
+              item.lab = createLabel2D(MOLECULES[key].l, "lbl");
+              root.add(item.lab);
+            }
+            ghgMolecules.push(item);
+            root.add(g);
+          }
 
-        // ---------- Hotspot bernomor ----------
-        [
-          [0, sunPos.clone()],
-          [1, new THREE.Vector3(0.6, 0.5, 6.3)],
-          [2, dirAtRadius(0.9, 0.35, 0.3, 6.6)]
-        ].forEach(([idx, pos]) => {
-          const hsEl = document.createElement('div');
-          hsEl.className = 'hs';
-          hsEl.textContent = idx + 1;
-          hsEl.title = hotspotsData[idx].t;
-          hsEl.addEventListener('click', () => openHotspot(idx));
-          c2d.appendChild(hsEl);
-          const obj = new THREE.Object3D();
-          obj.position.copy(pos);
-          root.add(obj);
-          labels2D.push({ el: hsEl, obj });
+          // ---------- Termometer ----------
+          const thermoGroup = new THREE.Group();
+          thermoGroup.position.set(10, -0.5, 0);
+          root.add(thermoGroup);
+          const bulbMesh = new THREE.Mesh(
+            new THREE.IcosahedronGeometry(0.55, 2),
+            new THREE.MeshStandardMaterial({
+              color: 0xe01818,
+              emissive: 0x990000,
+              flatShading: true,
+            })
+          );
+          bulbMesh.position.y = -2.7;
+          const glassTube = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.25, 0.25, 6, 16, 1, true),
+            new THREE.MeshStandardMaterial({
+              color: 0xcfe8ff,
+              transparent: true,
+              opacity: 0.25,
+              roughness: 0.1,
+              side: THREE.DoubleSide,
+              depthWrite: false,
+            })
+          );
+          glassTube.position.y = 0.5;
+          const mercuryBar = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.13, 0.13, 1, 10).translate(0, 0.5, 0),
+            bulbMesh.material
+          );
+          mercuryBar.position.y = -2.6;
+          thermoGroup.add(glassTube, bulbMesh, mercuryBar);
+          for (let i = 0; i < 8; i++) {
+            const tick = new THREE.Mesh(
+              new THREE.BoxGeometry(i % 2 ? 0.25 : 0.4, 0.04, 0.04),
+              new THREE.MeshBasicMaterial({ color: 0xffffff })
+            );
+            tick.position.set(0.42, -2.2 + i * 0.7, 0);
+            thermoGroup.add(tick);
+          }
+          const tempLabel = createLabel2D("Suhu Bumi", "lbl", 0, 4, 0);
+          thermoGroup.add(tempLabel);
+          thermoGroup.add(createLabel2D("🔥", "lbl", 0, -3.8, 0));
+
+          // ---------- Data narasi ----------
+          const hotspotsData = [
+            {
+              t: "Matahari sebagai Sumber Energi",
+              mode: "sun",
+              x: "Matahari merupakan sumber energi utama bagi Bumi. Energi dari Matahari bergerak menuju Bumi dalam bentuk radiasi gelombang pendek.",
+              subs: [
+                [
+                  "uva",
+                  "UVA",
+                  "UVA merupakan jenis sinar ultraviolet yang paling banyak mencapai permukaan Bumi karena mampu melewati atmosfer. Paparan UVA dalam jumlah berlebih dapat menembus lapisan kulit lebih dalam dan menyebabkan penuaan dini serta kerusakan sel kulit.",
+                ],
+                [
+                  "uvb",
+                  "UVB",
+                  "UVB sebagian besar diserap oleh lapisan ozon, tetapi sebagian kecil masih dapat mencapai permukaan Bumi. UVB memiliki energi lebih besar dibandingkan UVA sehingga dapat menyebabkan kerusakan langsung pada sel kulit.",
+                ],
+                [
+                  "uvc",
+                  "UVC",
+                  "UVC memiliki energi paling tinggi dibandingkan UVA dan UVB. Namun, sebagian besar sinar UVC diserap oleh lapisan ozon sehingga tidak mencapai permukaan Bumi.",
+                ],
+              ],
+            },
+            {
+              t: "Radiasi Inframerah dari Bumi",
+              mode: "ir",
+              x: "Setelah menyerap energi Matahari, permukaan Bumi menjadi lebih hangat. Permukaan Bumi kemudian melepaskan kembali energi tersebut dalam bentuk radiasi inframerah atau gelombang panjang. Radiasi inframerah bergerak dari permukaan Bumi menuju atmosfer. Proses ini merupakan bagian alami dari keseimbangan energi Bumi. Tanpa proses pelepasan panas ini, suhu Bumi akan menjadi terlalu tinggi.",
+            },
+            {
+              t: "Gas Rumah Kaca",
+              mode: "ghg",
+              x: "Gas rumah kaca merupakan komponen alami atmosfer yang membantu menjaga suhu Bumi. Gas ini menyerap sebagian radiasi inframerah yang dilepaskan permukaan Bumi dan mengembalikannya sehingga panas tetap berada di atmosfer. Namun, peningkatan jumlah gas rumah kaca akibat aktivitas manusia menyebabkan lebih banyak panas terperangkap dan berkontribusi terhadap pemanasan global.",
+            },
+          ];
+          const simSteps = [
+            {
+              n: 4,
+              t: "Radiasi Matahari Masuk Atmosfer",
+              mode: "s1",
+              x: "Energi dari Matahari dalam bentuk radiasi gelombang pendek masuk ke atmosfer Bumi dan mencapai permukaan.",
+            },
+            {
+              n: 5,
+              t: "Permukaan Bumi Memancarkan Panas",
+              mode: "s2",
+              x: "Permukaan Bumi yang hangat memancarkan kembali energi ke atmosfer dalam bentuk radiasi inframerah.",
+            },
+            {
+              n: 6,
+              t: "Penjebakan Panas oleh Gas Rumah Kaca",
+              mode: "s3",
+              x: "Molekul gas rumah kaca seperti CO₂, CH₄, N₂O, H₂O, dan O₃ menyerap radiasi inframerah dan memantulkannya kembali ke Bumi.",
+            },
+          ];
+          const MODES = {
+            free: { b: 0.65, ir: 0.85, g: 0, sp: 1.0 },
+            sun: { b: 0.12, ir: 0.25, g: 0, sp: 1.0 },
+            ir: { b: 0.2, ir: 1.0, g: 0, sp: 2.4 },
+            ghg: { b: 0.2, ir: 1.0, g: 1, sp: 1.2 },
+            s1: { b: 0.6, ir: 0.3, g: 0, sp: 1.0 },
+            s2: { b: 0.2, ir: 1.0, g: 0, sp: 1.6 },
+            s3: { b: 0.2, ir: 1.0, g: 1, sp: 1.2 },
+          };
+
+          let curMode = "free",
+            activeSubKey = null,
+            currentItem = null,
+            stepIndex = -1,
+            subIndex = 0,
+            subTimer = null;
+          let gasLevel = 0,
+            gasTarget = 0,
+            ghgPulse = 0,
+            tempVal = 0.25,
+            lastTempHtml = "";
+
+          // ---------- Hotspot bernomor ----------
+          [
+            [0, sunPos.clone()],
+            [1, new THREE.Vector3(0.6, 0.5, 6.3)],
+            [2, dirAtRadius(0.9, 0.35, 0.3, 6.6)],
+          ].forEach(([idx, pos]) => {
+            const hsEl = document.createElement("div");
+            hsEl.className = "hs";
+            hsEl.textContent = idx + 1;
+            hsEl.title = hotspotsData[idx].t;
+            hsEl.addEventListener("click", () => openHotspot(idx));
+            c2d.appendChild(hsEl);
+            const obj = new THREE.Object3D();
+            obj.position.copy(pos);
+            root.add(obj);
+            labels2D.push({ el: hsEl, obj });
+          });
+
+          // ---------- Panel & kontrol ----------
+          const panelEl = $("#panel");
+          function clearSubTimer() {
+            clearInterval(subTimer);
+            subTimer = null;
+            activeSubKey = null;
+          }
+          function selectSub(i) {
+            subIndex = i;
+            activeSubKey = currentItem.subs[i][0];
+            $("#sp").textContent = currentItem.subs[i][2];
+            [...$("#subs").children].forEach((el, idx) =>
+              el.classList.toggle("on", idx === i)
+            );
+          }
+          function showPanel(item, badgeNum) {
+            clearSubTimer();
+            currentItem = item;
+            curMode = item.mode;
+            panelEl.hidden = false;
+            $("#badge").textContent = badgeNum || "";
+            $("#pt").textContent = item.t;
+            $("#pp").textContent = item.x;
+            $("#nav").style.display = stepIndex >= 0 ? "flex" : "none";
+            const subsEl = $("#subs");
+            subsEl.innerHTML = "";
+            $("#sp").textContent = "";
+            if (item.subs) {
+              item.subs.forEach((sub, idx) => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "pbtn chip " + sub[0];
+                btn.textContent = sub[1];
+                btn.onclick = () => {
+                  clearInterval(subTimer);
+                  selectSub(idx);
+                };
+                subsEl.appendChild(btn);
+              });
+              selectSub(0);
+              subTimer = setInterval(() => selectSub((subIndex + 1) % 3), 7000);
+            }
+            if (window.speechSynthesis) speechSynthesis.cancel();
+          }
+          function setStartBtn(running) {
+            const b = $("#startBtn");
+            b.textContent = running
+              ? "■ Hentikan Simulasi"
+              : "▶ Mulai Simulasi";
+            b.classList.toggle("run", running);
+          }
+          function openHotspot(idx) {
+            stepIndex = -1;
+            setStartBtn(false);
+            showPanel(hotspotsData[idx], idx + 1);
+          }
+          function runSimStep(idx) {
+            if (idx >= simSteps.length) return resetView();
+            stepIndex = idx;
+            showPanel(simSteps[idx], simSteps[idx].n);
+            $("#next").textContent =
+              idx === simSteps.length - 1 ? "Selesai ✓" : "Next ➜";
+            $("#back").disabled = idx === 0;
+            setStartBtn(true);
+          }
+          function resetView() {
+            clearSubTimer();
+            stepIndex = -1;
+            currentItem = null;
+            curMode = "free";
+            panelEl.hidden = true;
+            setStartBtn(false);
+            if (window.speechSynthesis) speechSynthesis.cancel();
+          }
+          function resetAll() {
+            resetView();
+            gasTarget = 0;
+            $("#gas").value = 0;
+          }
+          window.SIM = { reset: resetAll };
+
+          $("#x").onclick = resetView;
+          $("#startBtn").onclick = () =>
+            stepIndex >= 0 ? resetView() : runSimStep(0);
+          $("#next").onclick = () => runSimStep(stepIndex + 1);
+          $("#back").onclick = () => runSimStep(stepIndex - 1);
+          $("#gas").oninput = (e) => {
+            gasTarget = e.target.value / 100;
+          };
+          $("#nar").onclick = () => {
+            if (!("speechSynthesis" in window) || !currentItem) {
+              showToast("Browser ini tidak mendukung fitur narasi suara.");
+              return;
+            }
+            speechSynthesis.cancel();
+            const text =
+              currentItem.x +
+              (currentItem.subs
+                ? " " + currentItem.subs.map((s) => s[2]).join(" ")
+                : "");
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = "id-ID";
+            utter.rate = 0.95;
+            speechSynthesis.speak(utter);
+          };
+
+          // ---------- Ketuk objek 3D (Matahari, panah panas, molekul) ----------
+          const raycaster = new THREE.Raycaster();
+          const ndc = new THREE.Vector2();
+          let downPos = null,
+            pointersDown = 0;
+          sunMesh.userData.hs = 0;
+          this._onDown = (e) => {
+            if (e.target !== sceneEl.canvas) return;
+            pointersDown++;
+            downPos = pointersDown === 1 ? [e.clientX, e.clientY] : null;
+          };
+          this._onUp = (e) => {
+            if (e.target !== sceneEl.canvas) {
+              pointersDown = 0;
+              return;
+            }
+            pointersDown = Math.max(0, pointersDown - 1);
+            if (
+              !downPos ||
+              Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]) > 8
+            ) {
+              downPos = null;
+              return;
+            }
+            downPos = null;
+            const cam = sceneEl.camera;
+            const rect = sceneEl.canvas.getBoundingClientRect();
+            if (!cam || !rect.width) return;
+            ndc.set(
+              ((e.clientX - rect.left) / rect.width) * 2 - 1,
+              -((e.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            cam.updateMatrixWorld();
+            cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
+            root.updateWorldMatrix(true, true);
+            raycaster.setFromCamera(ndc, cam);
+            const hit = raycaster
+              .intersectObjects(clickableObjects, false)
+              .find((h) => {
+                for (let o = h.object; o; o = o.parent)
+                  if (o.visible === false) return false;
+                return true;
+              });
+            if (hit && hit.object.userData.hs !== undefined)
+              openHotspot(hit.object.userData.hs);
+          };
+          document.addEventListener("pointerdown", this._onDown);
+          document.addEventListener("pointerup", this._onUp);
+          document.addEventListener("pointercancel", this._onUp);
+
+          // ---------- Animasi per frame ----------
+          let elapsed = 0,
+            labelsHidden = false;
+          const negDir = new THREE.Vector3();
+          const projVec = new THREE.Vector3();
+
+          this.step = function (dtMs) {
+            // Jangan hitung apa-apa saat gambar target tidak terlihat
+            let vis = true;
+            for (let o = self.el.object3D; o; o = o.parent)
+              if (o.visible === false) {
+                vis = false;
+                break;
+              }
+            if (!vis) {
+              if (!labelsHidden) {
+                labels2D.forEach((l) => {
+                  l.el.style.display = "none";
+                });
+                labelsHidden = true;
+              }
+              return;
+            }
+            labelsHidden = false;
+
+            const dt = Math.min((dtMs || 16) / 1000, 0.05);
+            elapsed += dt;
+            const mCfg = MODES[curMode];
+
+            gasLevel += (gasTarget - gasLevel) * 0.05;
+            earthGroup.rotation.y += dt * 0.08;
+            sunGlow.material.opacity = 0.85 + 0.15 * Math.sin(elapsed * 2);
+            sunMesh.rotation.y += dt * 0.1;
+
+            for (const b of solarBeams) {
+              let targetOp = mCfg.b;
+              if (curMode === "s1" && b.key === "sw") targetOp = 1;
+              if (curMode === "sun" && b.key === activeSubKey) targetOp = 1;
+              targetOp *= b.mult;
+              b.mat.opacity += (targetOp - b.mat.opacity) * 0.08;
+              b.pmat.opacity = Math.min(1, b.mat.opacity * 1.5);
+              const spd =
+                curMode === "sun" && b.key === activeSubKey ? 0.6 : 0.3;
+              b.pks.forEach((pk, idx) =>
+                pk.position.lerpVectors(b.a, b.b, (elapsed * spd + idx / 3) % 1)
+              );
+            }
+
+            reflectChance =
+              curMode === "ir" || curMode === "s2"
+                ? 0
+                : curMode === "ghg" || curMode === "s3"
+                ? 0.9
+                : 0.25 + 0.55 * gasLevel;
+            const activeIRCount = Math.round(20 + 36 * gasLevel);
+            irUpMat.opacity += (mCfg.ir - irUpMat.opacity) * 0.08;
+            irDownMat.opacity = irUpMat.opacity;
+
+            irWaves.forEach((w, idx) => {
+              w.g.visible = idx < activeIRCount;
+              if (!w.g.visible) return;
+              w.s += dt * w.v * mCfg.sp;
+              if (w.s >= 1) resetIRWave(w);
+              const s = w.s;
+              let rDist,
+                goingDown = false;
+              if (w.refl) {
+                if (s < 0.5) rDist = 5.3 + 0.9 * (s / 0.5);
+                else {
+                  rDist = 6.2 - 0.9 * ((s - 0.5) / 0.5);
+                  goingDown = true;
+                }
+              } else {
+                rDist = 5.3 + 3.1 * s;
+              }
+              const waveOffset =
+                Math.sin(s * 18 + w.ph) * 0.08 +
+                (goingDown ? (s - 0.5) * 0.7 : 0);
+              w.g.position
+                .copy(w.d)
+                .multiplyScalar(rDist)
+                .addScaledVector(w.t1, waveOffset);
+              w.g.quaternion.setFromUnitVectors(
+                UP,
+                goingDown ? negDir.copy(w.d).negate() : w.d
+              );
+              w.g.scale.setScalar(Math.min(1, s * 8, (1 - s) * 8));
+              if (goingDown !== w.dn) {
+                w.dn = goingDown;
+                w.tail.material = w.head.material = goingDown
+                  ? irDownMat
+                  : irUpMat;
+              }
+            });
+
+            ghgPulse += (mCfg.g - ghgPulse) * 0.06;
+            const activeMolCount = Math.round(10 + 18 * gasLevel);
+            ghgMolecules.forEach((m, idx) => {
+              m.g.visible = idx < activeMolCount;
+              if (m.lab) m.lab.visible = m.g.visible;
+              if (m.g.visible) {
+                m.g.position
+                  .copy(m.d)
+                  .multiplyScalar(m.r + 0.1 * Math.sin(elapsed * 0.8 + m.ph));
+                m.g.rotation.x += m.sp.x * dt;
+                m.g.rotation.y += m.sp.y * dt;
+                m.g.scale.setScalar(
+                  0.42 *
+                    (1 +
+                      ghgPulse *
+                        0.5 *
+                        (0.5 + 0.5 * Math.sin(elapsed * 4 + m.ph)))
+                );
+                if (m.lab) {
+                  m.lab.position.copy(m.g.position);
+                  m.lab.position.y -= 0.75;
+                }
+              }
+            });
+            for (const k in atomMats)
+              atomMats[k].emissiveIntensity = ghgPulse * 0.7;
+
+            tempVal +=
+              (0.22 + 0.72 * gasLevel + (ghgPulse > 0.5 ? 0.04 : 0) - tempVal) *
+              0.04;
+            mercuryBar.scale.y = Math.max(0.01, tempVal * 5.4);
+            earthLandMat.emissive.setRGB(0.24 * gasLevel, 0.04 * gasLevel, 0);
+
+            const tempHtml =
+              "Suhu Bumi<br>+" +
+              (Math.max(0, (tempVal - 0.22) / 0.72) * 3).toFixed(1) +
+              " °C";
+            if (tempHtml !== lastTempHtml) {
+              lastTempHtml = tempHtml;
+              const lblEntry = labels2D.find((l) => l.obj === tempLabel);
+              if (lblEntry) lblEntry.el.innerHTML = tempHtml;
+            }
+
+            // Proyeksi label 2D & hotspot ke layar memakai kamera AR
+            const cam = sceneEl.camera;
+            if (!cam) return;
+            root.updateWorldMatrix(true, true);
+            cam.updateMatrixWorld();
+            const halfW = window.innerWidth * 0.5,
+              halfH = window.innerHeight * 0.5;
+            for (const item of labels2D) {
+              if (item.obj.visible === false) {
+                item.el.style.display = "none";
+                continue;
+              }
+              projVec.setFromMatrixPosition(item.obj.matrixWorld).project(cam);
+              const ok =
+                projVec.z >= -1 &&
+                projVec.z <= 1 &&
+                Math.abs(projVec.x) < 1.15 &&
+                Math.abs(projVec.y) < 1.15;
+              item.el.style.display = ok ? "" : "none";
+              if (ok) {
+                item.el.style.left = projVec.x * halfW + halfW + "px";
+                item.el.style.top = -projVec.y * halfH + halfH + "px";
+              }
+            }
+          };
+        },
+        tick: function (time, dtMs) {
+          if (this.step) this.step(dtMs);
+        },
+        remove: function () {
+          document.removeEventListener("pointerdown", this._onDown);
+          document.removeEventListener("pointerup", this._onUp);
+          document.removeEventListener("pointercancel", this._onUp);
+          const c2d = document.getElementById("c2d");
+          if (c2d) c2d.innerHTML = "";
+        },
+      });
+
+      // Pasang objek 3D ke gambar target
+      (function () {
+        const marker = document.getElementById("marker-ar");
+        if (!marker) return;
+
+        // Pengatur orientasi terhadap gambar target
+        const pivot = document.createElement("a-entity");
+        pivot.id = "pivot-model";
+        const rx = (ORIENTASI === "berdiri" ? 90 : 0) + ROT_X;
+        pivot.setAttribute("rotation", rx + " " + ROT_Y + " " + ROT_Z);
+        // Holder penghalus: model ikut holder ini (bukan langsung ke gambar target)
+        const holder = document.createElement("a-entity");
+        holder.id = "holder-halus";
+        holder.setAttribute(
+          "smooth-follow",
+          "target: #marker-ar; factor: " + SMOOTH
+        );
+        document.querySelector("a-scene").appendChild(holder);
+        holder.appendChild(pivot);
+
+        function terapkanUkuran() {
+          const potret = window.innerHeight >= window.innerWidth;
+          const k = UKURAN * (potret ? UKURAN_PORTRAIT : UKURAN_LANDSCAPE);
+          pivot.setAttribute("scale", k + " " + k + " " + k);
+        }
+        terapkanUkuran();
+        window.addEventListener("resize", terapkanUkuran);
+        window.addEventListener("orientationchange", terapkanUkuran);
+
+        const m = document.createElement("a-entity");
+        m.id = "model-utama";
+        m.setAttribute("position", POSISI);
+        m.setAttribute("scale", SKALA + " " + SKALA + " " + SKALA);
+        m.setAttribute("iklim-sim", "");
+        m.setAttribute("gesture-handler", "");
+        pivot.appendChild(m);
+      })();
+
+      // Sembunyikan loading setelah AR siap (MindAR: arReady) atau gagal (arError)
+      function sembunyikanLoading() {
+        const l = document.getElementById("loading");
+        if (l) l.style.display = "none";
+      }
+      const sceneEl = document.querySelector("a-scene");
+      sceneEl.addEventListener("arReady", sembunyikanLoading);
+      sceneEl.addEventListener("arError", function () {
+        const l = document.getElementById("loading");
+        if (l) {
+          l.textContent =
+            "Kamera atau targets.mind gagal dimuat. Pakai HTTPS/localhost, izinkan kamera, dan pastikan targets.mind sejajar dengan file ini.";
+          l.style.fontSize = "14px";
+          l.style.letterSpacing = "1px";
+        }
+      });
+      sceneEl.addEventListener("loaded", function () {
+        setTimeout(sembunyikanLoading, 8000);
+      });
+
+      // Menu, info, dan tombol putar
+      (function () {
+        const btnMenu = document.getElementById("btn-menu"),
+          overlay = document.getElementById("overlay"),
+          menuPanel = document.getElementById("menu-panel"),
+          infoModal = document.getElementById("info-modal");
+
+        function tutupSemua() {
+          menuPanel.classList.remove("show");
+          infoModal.classList.remove("show");
+          overlay.classList.remove("show");
+          menuPanel.setAttribute("aria-hidden", "true");
+          infoModal.setAttribute("aria-hidden", "true");
+          btnMenu.setAttribute("aria-expanded", "false");
+        }
+        btnMenu.addEventListener("click", function () {
+          if (menuPanel.classList.contains("show")) return tutupSemua();
+          tutupSemua();
+          menuPanel.classList.add("show");
+          overlay.classList.add("show");
+          menuPanel.setAttribute("aria-hidden", "false");
+          btnMenu.setAttribute("aria-expanded", "true");
+        });
+        document
+          .getElementById("btn-info")
+          .addEventListener("click", function () {
+            tutupSemua();
+            infoModal.classList.add("show");
+            overlay.classList.add("show");
+            infoModal.setAttribute("aria-hidden", "false");
+          });
+        overlay.addEventListener("click", tutupSemua);
+        document
+          .getElementById("info-close")
+          .addEventListener("click", tutupSemua);
+        document
+          .getElementById("menu-reload")
+          .addEventListener("click", function () {
+            location.reload();
+          });
+        document
+          .getElementById("menu-sim-reset")
+          .addEventListener("click", function () {
+            if (window.SIM) window.SIM.reset();
+            tutupSemua();
+          });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") tutupSemua();
         });
 
-        // ---------- Panel & kontrol ----------
-        const panelEl = $('#panel');
-        function clearSubTimer() { clearInterval(subTimer); subTimer = null; activeSubKey = null; }
-        function selectSub(i) {
-          subIndex = i;
-          activeSubKey = currentItem.subs[i][0];
-          $('#sp').textContent = currentItem.subs[i][2];
-          [...$('#subs').children].forEach((el, idx) => el.classList.toggle('on', idx === i));
-        }
-        function showPanel(item, badgeNum) {
-          clearSubTimer();
-          currentItem = item;
-          curMode = item.mode;
-          panelEl.hidden = false;
-          $('#badge').textContent = badgeNum || '';
-          $('#pt').textContent = item.t;
-          $('#pp').textContent = item.x;
-          $('#nav').style.display = stepIndex >= 0 ? 'flex' : 'none';
-          const subsEl = $('#subs');
-          subsEl.innerHTML = '';
-          $('#sp').textContent = '';
-          if (item.subs) {
-            item.subs.forEach((sub, idx) => {
-              const btn = document.createElement('button');
-              btn.type = 'button';
-              btn.className = 'pbtn chip ' + sub[0];
-              btn.textContent = sub[1];
-              btn.onclick = () => { clearInterval(subTimer); selectSub(idx); };
-              subsEl.appendChild(btn);
-            });
-            selectSub(0);
-            subTimer = setInterval(() => selectSub((subIndex + 1) % 3), 7000);
-          }
-          if (window.speechSynthesis) speechSynthesis.cancel();
-        }
-        function setStartBtn(running) {
-          const b = $('#startBtn');
-          b.textContent = running ? '■ Hentikan Simulasi' : '▶ Mulai Simulasi';
-          b.classList.toggle('run', running);
-        }
-        function openHotspot(idx) {
-          stepIndex = -1;
-          setStartBtn(false);
-          showPanel(hotspotsData[idx], idx + 1);
-        }
-        function runSimStep(idx) {
-          if (idx >= simSteps.length) return resetView();
-          stepIndex = idx;
-          showPanel(simSteps[idx], simSteps[idx].n);
-          $('#next').textContent = idx === simSteps.length - 1 ? 'Selesai ✓' : 'Next ➜';
-          $('#back').disabled = idx === 0;
-          setStartBtn(true);
-        }
-        function resetView() {
-          clearSubTimer();
-          stepIndex = -1;
-          currentItem = null;
-          curMode = 'free';
-          panelEl.hidden = true;
-          setStartBtn(false);
-          if (window.speechSynthesis) speechSynthesis.cancel();
-        }
-        function resetAll() {
-          resetView();
-          gasTarget = 0;
-          $('#gas').value = 0;
-        }
-        window.SIM = { reset: resetAll };
-
-        $('#x').onclick = resetView;
-        $('#startBtn').onclick = () => (stepIndex >= 0 ? resetView() : runSimStep(0));
-        $('#next').onclick = () => runSimStep(stepIndex + 1);
-        $('#back').onclick = () => runSimStep(stepIndex - 1);
-        $('#gas').oninput = e => { gasTarget = e.target.value / 100; };
-        $('#nar').onclick = () => {
-          if (!('speechSynthesis' in window) || !currentItem) {
-            showToast('Browser ini tidak mendukung fitur narasi suara.');
-            return;
-          }
-          speechSynthesis.cancel();
-          const text = currentItem.x + (currentItem.subs ? ' ' + currentItem.subs.map(s => s[2]).join(' ') : '');
-          const utter = new SpeechSynthesisUtterance(text);
-          utter.lang = 'id-ID';
-          utter.rate = 0.95;
-          speechSynthesis.speak(utter);
-        };
-
-        // ---------- Ketuk objek 3D (Matahari, panah panas, molekul) ----------
-        const raycaster = new THREE.Raycaster();
-        const ndc = new THREE.Vector2();
-        let downPos = null, pointersDown = 0;
-        sunMesh.userData.hs = 0;
-        this._onDown = e => {
-          if (e.target !== sceneEl.canvas) return;
-          pointersDown++;
-          downPos = pointersDown === 1 ? [e.clientX, e.clientY] : null;
-        };
-        this._onUp = e => {
-          if (e.target !== sceneEl.canvas) { pointersDown = 0; return; }
-          pointersDown = Math.max(0, pointersDown - 1);
-          if (!downPos || Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]) > 8) { downPos = null; return; }
-          downPos = null;
-          const cam = sceneEl.camera;
-          const rect = sceneEl.canvas.getBoundingClientRect();
-          if (!cam || !rect.width) return;
-          ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
-          cam.updateMatrixWorld();
-          cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
-          root.updateWorldMatrix(true, true);
-          raycaster.setFromCamera(ndc, cam);
-          const hit = raycaster.intersectObjects(clickableObjects, false).find(h => {
-            for (let o = h.object; o; o = o.parent) if (o.visible === false) return false;
-            return true;
+        // Putar model 45° ke kanan (halus)
+        let frame = null;
+        document
+          .getElementById("btn-next")
+          .addEventListener("click", function () {
+            const el = document.getElementById("model-utama");
+            if (!el || !el.object3D) return;
+            if (frame) cancelAnimationFrame(frame);
+            const dari = el.object3D.rotation.y,
+              ke = dari + Math.PI / 4,
+              mulai = performance.now();
+            (function langkah(now) {
+              const t = Math.min((now - mulai) / 300, 1);
+              el.object3D.rotation.y =
+                dari + (ke - dari) * (1 - Math.pow(1 - t, 3));
+              frame = t < 1 ? requestAnimationFrame(langkah) : null;
+            })(mulai);
           });
-          if (hit && hit.object.userData.hs !== undefined) openHotspot(hit.object.userData.hs);
-        };
-        document.addEventListener('pointerdown', this._onDown);
-        document.addEventListener('pointerup', this._onUp);
-        document.addEventListener('pointercancel', this._onUp);
+      })();
+    </script>
 
-        // ---------- Animasi per frame ----------
-        let elapsed = 0, labelsHidden = false;
-        const negDir = new THREE.Vector3();
-        const projVec = new THREE.Vector3();
-
-        this.step = function (dtMs) {
-          // Jangan hitung apa-apa saat gambar target tidak terlihat
-          let vis = true;
-          for (let o = self.el.object3D; o; o = o.parent) if (o.visible === false) { vis = false; break; }
-          if (!vis) {
-            if (!labelsHidden) { labels2D.forEach(l => { l.el.style.display = 'none'; }); labelsHidden = true; }
-            return;
-          }
-          labelsHidden = false;
-
-          const dt = Math.min((dtMs || 16) / 1000, 0.05);
-          elapsed += dt;
-          const mCfg = MODES[curMode];
-
-          gasLevel += (gasTarget - gasLevel) * 0.05;
-          earthGroup.rotation.y += dt * 0.08;
-          sunGlow.material.opacity = 0.85 + 0.15 * Math.sin(elapsed * 2);
-          sunMesh.rotation.y += dt * 0.1;
-
-          for (const b of solarBeams) {
-            let targetOp = mCfg.b;
-            if (curMode === 's1' && b.key === 'sw') targetOp = 1;
-            if (curMode === 'sun' && b.key === activeSubKey) targetOp = 1;
-            targetOp *= b.mult;
-            b.mat.opacity += (targetOp - b.mat.opacity) * 0.08;
-            b.pmat.opacity = Math.min(1, b.mat.opacity * 1.5);
-            const spd = curMode === 'sun' && b.key === activeSubKey ? 0.6 : 0.3;
-            b.pks.forEach((pk, idx) => pk.position.lerpVectors(b.a, b.b, (elapsed * spd + idx / 3) % 1));
-          }
-
-          reflectChance = (curMode === 'ir' || curMode === 's2') ? 0 : (curMode === 'ghg' || curMode === 's3') ? 0.9 : 0.25 + 0.55 * gasLevel;
-          const activeIRCount = Math.round(20 + 36 * gasLevel);
-          irUpMat.opacity += (mCfg.ir - irUpMat.opacity) * 0.08;
-          irDownMat.opacity = irUpMat.opacity;
-
-          irWaves.forEach((w, idx) => {
-            w.g.visible = idx < activeIRCount;
-            if (!w.g.visible) return;
-            w.s += dt * w.v * mCfg.sp;
-            if (w.s >= 1) resetIRWave(w);
-            const s = w.s;
-            let rDist, goingDown = false;
-            if (w.refl) {
-              if (s < 0.5) rDist = 5.3 + 0.9 * (s / 0.5);
-              else { rDist = 6.2 - 0.9 * ((s - 0.5) / 0.5); goingDown = true; }
-            } else {
-              rDist = 5.3 + 3.1 * s;
-            }
-            const waveOffset = Math.sin(s * 18 + w.ph) * 0.08 + (goingDown ? (s - 0.5) * 0.7 : 0);
-            w.g.position.copy(w.d).multiplyScalar(rDist).addScaledVector(w.t1, waveOffset);
-            w.g.quaternion.setFromUnitVectors(UP, goingDown ? negDir.copy(w.d).negate() : w.d);
-            w.g.scale.setScalar(Math.min(1, s * 8, (1 - s) * 8));
-            if (goingDown !== w.dn) {
-              w.dn = goingDown;
-              w.tail.material = w.head.material = goingDown ? irDownMat : irUpMat;
-            }
-          });
-
-          ghgPulse += (mCfg.g - ghgPulse) * 0.06;
-          const activeMolCount = Math.round(10 + 18 * gasLevel);
-          ghgMolecules.forEach((m, idx) => {
-            m.g.visible = idx < activeMolCount;
-            if (m.lab) m.lab.visible = m.g.visible;
-            if (m.g.visible) {
-              m.g.position.copy(m.d).multiplyScalar(m.r + 0.1 * Math.sin(elapsed * 0.8 + m.ph));
-              m.g.rotation.x += m.sp.x * dt;
-              m.g.rotation.y += m.sp.y * dt;
-              m.g.scale.setScalar(0.42 * (1 + ghgPulse * 0.5 * (0.5 + 0.5 * Math.sin(elapsed * 4 + m.ph))));
-              if (m.lab) { m.lab.position.copy(m.g.position); m.lab.position.y -= 0.75; }
-            }
-          });
-          for (const k in atomMats) atomMats[k].emissiveIntensity = ghgPulse * 0.7;
-
-          tempVal += (0.22 + 0.72 * gasLevel + (ghgPulse > 0.5 ? 0.04 : 0) - tempVal) * 0.04;
-          mercuryBar.scale.y = Math.max(0.01, tempVal * 5.4);
-          earthLandMat.emissive.setRGB(0.24 * gasLevel, 0.04 * gasLevel, 0);
-
-          const tempHtml = 'Suhu Bumi<br>+' + (Math.max(0, (tempVal - 0.22) / 0.72) * 3).toFixed(1) + ' °C';
-          if (tempHtml !== lastTempHtml) {
-            lastTempHtml = tempHtml;
-            const lblEntry = labels2D.find(l => l.obj === tempLabel);
-            if (lblEntry) lblEntry.el.innerHTML = tempHtml;
-          }
-
-          // Proyeksi label 2D & hotspot ke layar memakai kamera AR
-          const cam = sceneEl.camera;
-          if (!cam) return;
-          root.updateWorldMatrix(true, true);
-          cam.updateMatrixWorld();
-          const halfW = window.innerWidth * 0.5, halfH = window.innerHeight * 0.5;
-          for (const item of labels2D) {
-            if (item.obj.visible === false) { item.el.style.display = 'none'; continue; }
-            projVec.setFromMatrixPosition(item.obj.matrixWorld).project(cam);
-            const ok = projVec.z >= -1 && projVec.z <= 1 && Math.abs(projVec.x) < 1.15 && Math.abs(projVec.y) < 1.15;
-            item.el.style.display = ok ? '' : 'none';
-            if (ok) {
-              item.el.style.left = (projVec.x * halfW + halfW) + 'px';
-              item.el.style.top = (-projVec.y * halfH + halfH) + 'px';
-            }
-          }
-        };
-      },
-      tick: function (time, dtMs) { if (this.step) this.step(dtMs); },
-      remove: function () {
-        document.removeEventListener('pointerdown', this._onDown);
-        document.removeEventListener('pointerup', this._onUp);
-        document.removeEventListener('pointercancel', this._onUp);
-        const c2d = document.getElementById('c2d');
-        if (c2d) c2d.innerHTML = '';
-      }
-    });
-
-    // Pasang objek 3D ke gambar target
-    (function () {
-      const marker = document.getElementById('marker-ar');
-      if (!marker) return;
-
-      // Pengatur orientasi terhadap gambar target
-      const pivot = document.createElement('a-entity');
-      pivot.id = 'pivot-model';
-      const rx = (ORIENTASI === 'berdiri' ? 90 : 0) + ROT_X;
-      pivot.setAttribute('rotation', rx + ' ' + ROT_Y + ' ' + ROT_Z);
-      // Holder penghalus: model ikut holder ini (bukan langsung ke gambar target)
-      const holder = document.createElement('a-entity');
-      holder.id = 'holder-halus';
-      holder.setAttribute('smooth-follow', 'target: #marker-ar; factor: ' + SMOOTH);
-      document.querySelector('a-scene').appendChild(holder);
-      holder.appendChild(pivot);
-
-      function terapkanUkuran() {
-        const potret = window.innerHeight >= window.innerWidth;
-        const k = UKURAN * (potret ? UKURAN_PORTRAIT : UKURAN_LANDSCAPE);
-        pivot.setAttribute('scale', k + ' ' + k + ' ' + k);
-      }
-      terapkanUkuran();
-      window.addEventListener('resize', terapkanUkuran);
-      window.addEventListener('orientationchange', terapkanUkuran);
-
-      const m = document.createElement('a-entity');
-      m.id = 'model-utama';
-      m.setAttribute('position', POSISI);
-      m.setAttribute('scale', SKALA + ' ' + SKALA + ' ' + SKALA);
-      m.setAttribute('iklim-sim', '');
-      m.setAttribute('gesture-handler', '');
-      pivot.appendChild(m);
-    })();
-
-    // Sembunyikan loading setelah AR siap (MindAR: arReady) atau gagal (arError)
-    function sembunyikanLoading() { const l = document.getElementById('loading'); if (l) l.style.display = 'none'; }
-    const sceneEl = document.querySelector('a-scene');
-    sceneEl.addEventListener('arReady', sembunyikanLoading);
-    sceneEl.addEventListener('arError', function () {
-      const l = document.getElementById('loading');
-      if (l) { l.textContent = 'Kamera atau targets.mind gagal dimuat. Pakai HTTPS/localhost, izinkan kamera, dan pastikan targets.mind sejajar dengan file ini.'; l.style.fontSize = '14px'; l.style.letterSpacing = '1px'; }
-    });
-    sceneEl.addEventListener('loaded', function () { setTimeout(sembunyikanLoading, 8000); });
-
-    // Menu, info, dan tombol putar
-    (function () {
-      const btnMenu = document.getElementById('btn-menu'), overlay = document.getElementById('overlay'),
-            menuPanel = document.getElementById('menu-panel'), infoModal = document.getElementById('info-modal');
-
-      function tutupSemua() {
-        menuPanel.classList.remove('show'); infoModal.classList.remove('show'); overlay.classList.remove('show');
-        menuPanel.setAttribute('aria-hidden', 'true'); infoModal.setAttribute('aria-hidden', 'true');
-        btnMenu.setAttribute('aria-expanded', 'false');
-      }
-      btnMenu.addEventListener('click', function () {
-        if (menuPanel.classList.contains('show')) return tutupSemua();
-        tutupSemua(); menuPanel.classList.add('show'); overlay.classList.add('show');
-        menuPanel.setAttribute('aria-hidden', 'false'); btnMenu.setAttribute('aria-expanded', 'true');
-      });
-      document.getElementById('btn-info').addEventListener('click', function () {
-        tutupSemua(); infoModal.classList.add('show'); overlay.classList.add('show'); infoModal.setAttribute('aria-hidden', 'false');
-      });
-      overlay.addEventListener('click', tutupSemua);
-      document.getElementById('info-close').addEventListener('click', tutupSemua);
-      document.getElementById('menu-reload').addEventListener('click', function () { location.reload(); });
-      document.getElementById('menu-sim-reset').addEventListener('click', function () { if (window.SIM) window.SIM.reset(); tutupSemua(); });
-      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') tutupSemua(); });
-
-      // Putar model 45° ke kanan (halus)
-      let frame = null;
-      document.getElementById('btn-next').addEventListener('click', function () {
-        const el = document.getElementById('model-utama');
-        if (!el || !el.object3D) return;
-        if (frame) cancelAnimationFrame(frame);
-        const dari = el.object3D.rotation.y, ke = dari + Math.PI / 4, mulai = performance.now();
-        (function langkah(now) {
-          const t = Math.min((now - mulai) / 300, 1);
-          el.object3D.rotation.y = dari + (ke - dari) * (1 - Math.pow(1 - t, 3));
-          frame = t < 1 ? requestAnimationFrame(langkah) : null;
-        })(mulai);
-      });
-    })();
-  </script>
-
-  <script>
-    /* ARAH SELURUH UI MENGIKUTI ARAH HP SEBENARNYA (sensor gravitasi)
+    <script>
+      /* ARAH SELURUH UI MENGIKUTI ARAH HP SEBENARNYA (sensor gravitasi)
        Berguna saat rotasi layar HP terkunci: halaman tetap portrait, tetapi navigasi (menu, info, tombol putar, kontrol, panel)
        ikut diputar 90°/180°/270°, dan geser jari untuk memutar objek juga disesuaikan arahnya.
        qDeg = putaran UI searah jarum jam (0 / 90 / 180 / 270). Label di atas objek 3D tetap tegak menurut halaman. */
-    (function () {
-      const D = Math.PI / 180;
-      const rot = document.createElement('div');
-      rot.id = 'ui-rot';
-      document.body.appendChild(rot);
-      ['gui-container', 'btn-menu', 'btn-info', 'btn-next', 'dock', 'panel', 'toast', 'overlay', 'menu-panel', 'info-modal', 'info-bawah'].forEach(function (id) {
-        const el = document.getElementById(id);
-        if (el) rot.appendChild(el);
-      });
+      (function () {
+        const D = Math.PI / 180;
+        const rot = document.createElement("div");
+        rot.id = "ui-rot";
+        document.body.appendChild(rot);
+        [
+          "gui-container",
+          "btn-menu",
+          "btn-info",
+          "btn-next",
+          "dock",
+          "panel",
+          "toast",
+          "overlay",
+          "menu-panel",
+          "info-modal",
+          "info-bawah",
+        ].forEach(function (id) {
+          const el = document.getElementById(id);
+          if (el) rot.appendChild(el);
+        });
 
-      let qDeg = 0, kunci = '';
-      function terapkan() {
-        const W = window.innerWidth, H = window.innerHeight, ganjil = (qDeg % 180) !== 0, pw = ganjil ? H : W, ph = ganjil ? W : H;
-        rot.classList.toggle('land', pw > ph);
-        const key = W + '|' + H + '|' + qDeg;
-        if (key === kunci) return;
-        kunci = key;
-        rot.style.width = pw + 'px';
-        rot.style.height = ph + 'px';
-        rot.style.transform = 'translate(-50%,-50%) rotate(' + qDeg + 'deg)';
-      }
+        let qDeg = 0,
+          kunci = "";
+        function terapkan() {
+          const W = window.innerWidth,
+            H = window.innerHeight,
+            ganjil = qDeg % 180 !== 0,
+            pw = ganjil ? H : W,
+            ph = ganjil ? W : H;
+          rot.classList.toggle("land", pw > ph);
+          const key = W + "|" + H + "|" + qDeg;
+          if (key === kunci) return;
+          kunci = key;
+          rot.style.width = pw + "px";
+          rot.style.height = ph + "px";
+          rot.style.transform = "translate(-50%,-50%) rotate(" + qDeg + "deg)";
+        }
 
-      function tiltHandler(e) {
-        if (e.beta == null || e.gamma == null) return;
-        const b = e.beta * D, g = e.gamma * D;
-        const ux = -Math.cos(b) * Math.sin(g), uy = Math.sin(b);
-        const a = ((screen.orientation && typeof screen.orientation.angle === 'number') ? screen.orientation.angle : (window.orientation || 0)) * D;
-        const px = ux * Math.cos(a) - uy * Math.sin(a), py = ux * Math.sin(a) + uy * Math.cos(a);
-        if (Math.hypot(px, py) < 0.4) return;
-        const phi = Math.atan2(px, py) / D;
-        const diff = ((phi - qDeg + 540) % 360) - 180;
-        if (Math.abs(diff) > 50) { qDeg = ((Math.round(phi / 90) * 90) % 360 + 360) % 360; terapkan(); }
-      }
-      let tiltOn = false;
-      function startTilt() { if (tiltOn) return; tiltOn = true; window.addEventListener('deviceorientation', tiltHandler); }
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        // iOS: perlu izin sensor setelah ketukan pertama
-        const minta = function () { DeviceOrientationEvent.requestPermission().then(function (r) { if (r === 'granted') startTilt(); }).catch(function () {}); };
-        ['click', 'touchend'].forEach(function (ev) { window.addEventListener(ev, minta, { once: true }); });
-      } else startTilt();
+        function tiltHandler(e) {
+          if (e.beta == null || e.gamma == null) return;
+          const b = e.beta * D,
+            g = e.gamma * D;
+          const ux = -Math.cos(b) * Math.sin(g),
+            uy = Math.sin(b);
+          const a =
+            (screen.orientation && typeof screen.orientation.angle === "number"
+              ? screen.orientation.angle
+              : window.orientation || 0) * D;
+          const px = ux * Math.cos(a) - uy * Math.sin(a),
+            py = ux * Math.sin(a) + uy * Math.cos(a);
+          if (Math.hypot(px, py) < 0.4) return;
+          const phi = Math.atan2(px, py) / D;
+          const diff = ((phi - qDeg + 540) % 360) - 180;
+          if (Math.abs(diff) > 50) {
+            qDeg = (((Math.round(phi / 90) * 90) % 360) + 360) % 360;
+            terapkan();
+          }
+        }
+        let tiltOn = false;
+        function startTilt() {
+          if (tiltOn) return;
+          tiltOn = true;
+          window.addEventListener("deviceorientation", tiltHandler);
+        }
+        if (
+          typeof DeviceOrientationEvent !== "undefined" &&
+          typeof DeviceOrientationEvent.requestPermission === "function"
+        ) {
+          // iOS: perlu izin sensor setelah ketukan pertama
+          const minta = function () {
+            DeviceOrientationEvent.requestPermission()
+              .then(function (r) {
+                if (r === "granted") startTilt();
+              })
+              .catch(function () {});
+          };
+          ["click", "touchend"].forEach(function (ev) {
+            window.addEventListener(ev, minta, { once: true });
+          });
+        } else startTilt();
 
-      // Geser jari untuk memutar objek: arahnya diputar sesuai arah HP
-      window.addEventListener('onefingermove', function (e) {
-        const d = e.detail;
-        if (!d || !d.positionChange || qDeg === 0) return;
-        const q = qDeg * D, c = Math.cos(q), s = Math.sin(q), x = d.positionChange.x, y = d.positionChange.y;
-        d.positionChange.x = x * c + y * s;
-        d.positionChange.y = -x * s + y * c;
-      }, true);
+        // Geser jari untuk memutar objek: arahnya diputar sesuai arah HP
+        window.addEventListener(
+          "onefingermove",
+          function (e) {
+            const d = e.detail;
+            if (!d || !d.positionChange || qDeg === 0) return;
+            const q = qDeg * D,
+              c = Math.cos(q),
+              s = Math.sin(q),
+              x = d.positionChange.x,
+              y = d.positionChange.y;
+            d.positionChange.x = x * c + y * s;
+            d.positionChange.y = -x * s + y * c;
+          },
+          true
+        );
 
-      window.addEventListener('resize', terapkan);
-      window.addEventListener('orientationchange', function () { setTimeout(terapkan, 300); });
-      terapkan();
-    })();
-  </script>
-  <script>
-    /* ===== STRIP INFO GAS RUMAH KACA =====
+        window.addEventListener("resize", terapkan);
+        window.addEventListener("orientationchange", function () {
+          setTimeout(terapkan, 300);
+        });
+        terapkan();
+      })();
+    </script>
+    <script>
+      /* ===== STRIP INFO GAS RUMAH KACA =====
        Isi gambar sendiri: letakkan file di folder asset lalu sesuaikan path 'img' di bawah.
        img kosong ('') atau file belum ada -> tampil kotak putus-putus (tempat gambar). */
-    (function () {
-      const GAS_RUMAH_KACA = [
-        { kode: 'CO₂', nama: 'Karbon dioksida',   img: '/asset/gas/co2.png' },
-        { kode: 'H₂O', nama: 'uap air',           img: './asset/gas/h2o.png' },
-        { kode: 'CH₄', nama: 'Metana',            img: './asset/gas/ch4.png' },
-        { kode: '',    nama: 'Ozon',              img: './asset/gas/o3.png' },
-        { kode: 'N₂O', nama: 'Dinitrogen oksida', img: './asset/gas/n2o.png' },
-      ];
-      const SUMBER_GAS = [
-        { nama: 'Industri & Pembangkit Listrik',             img: './asset/sumber/industriListrik.png',     href: 'sumbergas/pabrik.html' },
-        { nama: 'Transportasi',                              img: './asset/sumber/transportasi.png', href: 'sumbergas/transportasi.html' },
-        { nama: 'Peternakan',                                img: './asset/sumber/sapi.png',    href: 'sumbergas/sapi.html' },
-        { nama: 'Deforestasi & Perubahan Penggunaan Lahan',  img: './asset/sumber/deforestasi.png',   href: 'sumbergas/deforestasi.html' },
-        { nama: 'Pertanian',                                 img: './asset/sumber/pertanian.png',     href: 'sumbergas/pertanian.html' },
-      ];
-      const MULAI_TERBUKA = !window.matchMedia('(orientation:landscape) and (max-height:520px)').matches;
+      (function () {
+        const GAS_RUMAH_KACA = [
+          { kode: "CO₂", nama: "Karbon dioksida", img: "/asset/gas/co2.png" },
+          { kode: "H₂O", nama: "uap air", img: "./asset/gas/h2o.png" },
+          { kode: "CH₄", nama: "Metana", img: "./asset/gas/ch4.png" },
+          { kode: "", nama: "Ozon", img: "./asset/gas/o3.png" },
+          {
+            kode: "N₂O",
+            nama: "Dinitrogen oksida",
+            img: "./asset/gas/n2o.png",
+          },
+        ];
+        const SUMBER_GAS = [
+          {
+            nama: "Industri & Pembangkit Listrik",
+            img: "./asset/sumber/industriListrik.png",
+            href: "sumbergas/pabrik.html",
+          },
+          {
+            nama: "Transportasi",
+            img: "./asset/sumber/transportasi.png",
+            href: "sumbergas/transportasi.html",
+          },
+          {
+            nama: "Peternakan",
+            img: "./asset/sumber/sapi.png",
+            href: "sumbergas/sapi.html",
+          },
+          {
+            nama: "Deforestasi & Perubahan Penggunaan Lahan",
+            img: "./asset/sumber/deforestasi.png",
+            href: "sumbergas/deforestasi.html",
+          },
+          {
+            nama: "Pertanian",
+            img: "./asset/sumber/pertanian.png",
+            href: "sumbergas/pertanian.html",
+          },
+        ];
+        const MULAI_TERBUKA = !window.matchMedia(
+          "(orientation:landscape) and (max-height:520px)"
+        ).matches;
 
-      function ikon(src, kelas) {
-        const w = document.createElement('span');
-        w.className = 'ib-ikon ' + kelas;
-        if (!src) { w.classList.add('kosong'); return w; }
-        const im = new Image();
-        im.alt = ''; im.draggable = false;
-        im.onerror = function () { im.remove(); w.classList.add('kosong'); };
-        im.src = src;
-        w.appendChild(im);
-        return w;
-      }
+        function ikon(src, kelas) {
+          const w = document.createElement("span");
+          w.className = "ib-ikon " + kelas;
+          if (!src) {
+            w.classList.add("kosong");
+            return w;
+          }
+          const im = new Image();
+          im.alt = "";
+          im.draggable = false;
+          im.onerror = function () {
+            im.remove();
+            w.classList.add("kosong");
+          };
+          im.src = src;
+          w.appendChild(im);
+          return w;
+        }
 
-      const gas = document.getElementById('ib-gas'), src = document.getElementById('ib-src');
-      GAS_RUMAH_KACA.forEach(function (g) {
-        const it = document.createElement('div'); it.className = 'it';
-        const t = document.createElement('span');
-        if (g.kode) { const b = document.createElement('b'); b.textContent = g.kode; t.append(b, ' ' + g.nama); }
-        else t.textContent = g.nama;
-        it.append(ikon(g.img, 'gas'), t);
-        gas.appendChild(it);
-      });
-      SUMBER_GAS.forEach(function (g) {
-        const it = document.createElement('a'); it.className = 'it';
-        it.href = g.href || 'sumbergas.html';
-        const t = document.createElement('span'); t.textContent = g.nama;
-        it.append(ikon(g.img, 'sumber'), t);
-        src.appendChild(it);
-      });
+        const gas = document.getElementById("ib-gas"),
+          src = document.getElementById("ib-src");
+        GAS_RUMAH_KACA.forEach(function (g) {
+          const it = document.createElement("div");
+          it.className = "it";
+          const t = document.createElement("span");
+          if (g.kode) {
+            const b = document.createElement("b");
+            b.textContent = g.kode;
+            t.append(b, " " + g.nama);
+          } else t.textContent = g.nama;
+          it.append(ikon(g.img, "gas"), t);
+          gas.appendChild(it);
+        });
+        SUMBER_GAS.forEach(function (g) {
+          const it = document.createElement("a");
+          it.className = "it";
+          it.href = g.href || "sumbergas.html";
+          const t = document.createElement("span");
+          t.textContent = g.nama;
+          it.append(ikon(g.img, "sumber"), t);
+          src.appendChild(it);
+        });
 
-      // Buka/tutup strip
-      const strip = document.getElementById('info-bawah'), isi = document.getElementById('ib-isi'), tgl = document.getElementById('ib-toggle');
-      function atur(buka) {
-        isi.hidden = !buka;
-        tgl.setAttribute('aria-expanded', buka ? 'true' : 'false');
-        tgl.textContent = 'GAS RUMAH KACA ' + (buka ? '▾' : '▴');
-        ukur();
-      }
-      tgl.addEventListener('click', function () { atur(isi.hidden); });
+        // Buka/tutup strip
+        const strip = document.getElementById("info-bawah"),
+          isi = document.getElementById("ib-isi"),
+          tgl = document.getElementById("ib-toggle");
+        function atur(buka) {
+          isi.hidden = !buka;
+          tgl.setAttribute("aria-expanded", buka ? "true" : "false");
+          tgl.textContent = "GAS RUMAH KACA " + (buka ? "▾" : "▴");
+          ukur();
+        }
+        tgl.addEventListener("click", function () {
+          atur(isi.hidden);
+        });
 
-      // Ukur tinggi strip -> --info-h (dipakai tombol putar, dock, dan panel agar tidak tertutup)
-      function ukur() { document.documentElement.style.setProperty('--info-h', strip.offsetHeight + 'px'); }
-      if (window.ResizeObserver) new ResizeObserver(ukur).observe(strip);
-      window.addEventListener('resize', ukur);
-      atur(MULAI_TERBUKA);
-    })();
-  </script>
-</body>
+        // Ukur tinggi strip -> --info-h (dipakai tombol putar, dock, dan panel agar tidak tertutup)
+        function ukur() {
+          document.documentElement.style.setProperty(
+            "--info-h",
+            strip.offsetHeight + "px"
+          );
+        }
+        if (window.ResizeObserver) new ResizeObserver(ukur).observe(strip);
+        window.addEventListener("resize", ukur);
+        atur(MULAI_TERBUKA);
+      })();
+    </script>
+  </body>
 </html>

@@ -1,154 +1,196 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>StellarX — Pertemuan</title>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StellarX — Pertemuan</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
 
-  <style>
-    :root {
-      --white: #fff;
-      --amber: #ffb347;
-      --line: rgba(120, 190, 255, .38);
-      --mono: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
-    }
+    <style>
+      :root {
+        --white: #fff;
+        --amber: #ffb347;
+        --line: rgba(120, 190, 255, 0.38);
+        --mono: "IBM Plex Mono", ui-monospace, "Courier New", monospace;
+      }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-    body {
-      min-height: 100vh;
-      min-height: 100svh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 60px;
-      color: var(--white);
-      font-family: var(--mono);
-      -webkit-font-smoothing: antialiased;
-      background:
-        radial-gradient(ellipse 48% 34% at 66% 58%, rgba(255, 140, 40, .3), transparent 72%),
-        radial-gradient(ellipse 110% 45% at 75% 108%, rgba(40, 130, 255, .5), transparent 72%),
-        radial-gradient(ellipse 60% 30% at 100% 70%, rgba(77, 184, 255, .3), transparent 70%),
-        linear-gradient(180deg, #000 0%, #02050d 55%, #061226 100%);
-      background-attachment: fixed;
-    }
+      body {
+        min-height: 100vh;
+        min-height: 100svh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 60px;
+        color: var(--white);
+        font-family: var(--mono);
+        -webkit-font-smoothing: antialiased;
+        background: radial-gradient(
+            ellipse 48% 34% at 66% 58%,
+            rgba(255, 140, 40, 0.3),
+            transparent 72%
+          ),
+          radial-gradient(
+            ellipse 110% 45% at 75% 108%,
+            rgba(40, 130, 255, 0.5),
+            transparent 72%
+          ),
+          radial-gradient(
+            ellipse 60% 30% at 100% 70%,
+            rgba(77, 184, 255, 0.3),
+            transparent 70%
+          ),
+          linear-gradient(180deg, #000 0%, #02050d 55%, #061226 100%);
+        background-attachment: fixed;
+      }
 
-    /* Tombol kembali (pojok kiri atas) */
-    .back-btn {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      z-index: 10;
-      color: var(--white);
-      text-decoration: none;
-      font-size: 12px;
-      letter-spacing: .5px;
-      padding: 8px 14px;
-      border: 1px solid var(--line);
-      background: rgba(0, 8, 24, .55);
-      transition: border-color .25s, background .25s, color .25s;
-    }
-    .back-btn:hover, .back-btn:focus-visible {
-      border-color: var(--amber);
-      background: rgba(255, 179, 71, .08);
-      color: var(--amber);
-      outline: none;
-    }
+      /* Tombol kembali (pojok kiri atas) */
+      .back-btn {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 10;
+        color: var(--white);
+        text-decoration: none;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+        padding: 8px 14px;
+        border: 1px solid var(--line);
+        background: rgba(0, 8, 24, 0.55);
+        transition: border-color 0.25s, background 0.25s, color 0.25s;
+      }
+      .back-btn:hover,
+      .back-btn:focus-visible {
+        border-color: var(--amber);
+        background: rgba(255, 179, 71, 0.08);
+        color: var(--amber);
+        outline: none;
+      }
 
-    /* Tiga tombol dengan jarak antar tombol (gap) */
-    .grid {
-      width: 100%;
-      max-width: 1100px;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 40px;
-    }
+      /* Tiga tombol dengan jarak antar tombol (gap) */
+      .grid {
+        width: 100%;
+        max-width: 1100px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 40px;
+      }
 
-    .card {
-      display: flex;
-      flex-direction: column;
-      color: var(--white);
-      text-decoration: none;
-      border: 1px solid var(--line);
-      background: rgba(0, 8, 24, .55);
-      transition: border-color .25s, background .25s, transform .25s;
-    }
-    .card:hover, .card:focus-visible {
-      border-color: var(--amber);
-      background: rgba(255, 179, 71, .08);
-      transform: translateY(-4px);
-      outline: none;
-    }
+      .card {
+        display: flex;
+        flex-direction: column;
+        color: var(--white);
+        text-decoration: none;
+        border: 1px solid var(--line);
+        background: rgba(0, 8, 24, 0.55);
+        transition: border-color 0.25s, background 0.25s, transform 0.25s;
+      }
+      .card:hover,
+      .card:focus-visible {
+        border-color: var(--amber);
+        background: rgba(255, 179, 71, 0.08);
+        transform: translateY(-4px);
+        outline: none;
+      }
 
-    /* Foto: simpan di asset/pertemuan1.jpg, pertemuan2.jpg, pertemuan3.jpg */
-    .card-img {
-      position: relative;
-      aspect-ratio: 4 / 3;
-      overflow: hidden;
-      border-bottom: 1px solid var(--line);
-      background:
-        radial-gradient(ellipse 70% 60% at 50% 55%, rgba(77, 184, 255, .22), transparent 75%),
-        linear-gradient(180deg, #02050d, #061226);
-    }
-    .card-img img {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transition: transform .5s ease;
-    }
-    .card:hover .card-img img { transform: scale(1.05); }
+      /* Foto: simpan di asset/pertemuan1.jpg, pertemuan2.jpg, pertemuan3.jpg */
+      .card-img {
+        position: relative;
+        aspect-ratio: 4 / 3;
+        overflow: hidden;
+        border-bottom: 1px solid var(--line);
+        background: radial-gradient(
+            ellipse 70% 60% at 50% 55%,
+            rgba(77, 184, 255, 0.22),
+            transparent 75%
+          ),
+          linear-gradient(180deg, #02050d, #061226);
+      }
+      .card-img img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+      }
+      .card:hover .card-img img {
+        transform: scale(1.05);
+      }
 
-    .card-label {
-      padding: 22px 24px;
-      font-size: 16px;
-      letter-spacing: .5px;
-      text-transform: uppercase;
-      text-align: center;
-    }
+      .card-label {
+        padding: 22px 24px;
+        font-size: 16px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        text-align: center;
+      }
 
-    @media (max-width: 900px) {
-      body { padding: 72px 24px 32px; }
-      .grid { grid-template-columns: 1fr; gap: 28px; max-width: 460px; }
-    }
+      @media (max-width: 900px) {
+        body {
+          padding: 72px 24px 32px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+          gap: 28px;
+          max-width: 460px;
+        }
+      }
 
-    @media (prefers-reduced-motion: reduce) {
-      * { transition: none !important; }
-    }
-  </style>
-</head>
-<body>
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="back-btn" href="/index.html">← Kembali</a>
 
-  <a class="back-btn" href="/home.html">← Kembali</a>
+    <main class="grid">
+      <a class="card" href="ar1.html">
+        <div class="card-img">
+          <img
+            src="./asset/ar1.jpeg"
+            alt="Bumi"
+            onerror="this.style.display='none'"
+          />
+        </div>
+        <div class="card-label">Pertemuan 1</div>
+      </a>
 
-  <main class="grid">
+      <a class="card" href="ar2.html">
+        <div class="card-img">
+          <img
+            src="./asset/ar2.png"
+            alt="UV"
+            onerror="this.style.display='none'"
+          />
+        </div>
+        <div class="card-label">Pertemuan 2</div>
+      </a>
 
-    <a class="card" href="ar1.html">
-      <div class="card-img">
-        <img src="./asset/ar1.jpeg" alt="Bumi" onerror="this.style.display='none'" />
-      </div>
-      <div class="card-label">Pertemuan 1</div>
-    </a>
-
-    <a class="card" href="ar2.html">
-      <div class="card-img">
-        <img src="./asset/ar2.png" alt="UV" onerror="this.style.display='none'" />
-      </div>
-      <div class="card-label">Pertemuan 2</div>
-    </a>
-
-    <a class="card" href="ar3.html">
-      <div class="card-img">
-        <img src="./asset/pertemuan3.jpg" alt="Akibat alam" onerror="this.style.display='none'" />
-      </div>
-      <div class="card-label">Pertemuan 3</div>
-    </a>
-
-  </main>
-</body>
+      <a class="card" href="ar3.html">
+        <div class="card-img">
+          <img
+            src="./asset/pertemuan3.jpg"
+            alt="Akibat alam"
+            onerror="this.style.display='none'"
+          />
+        </div>
+        <div class="card-label">Pertemuan 3</div>
+      </a>
+    </main>
+  </body>
 </html>
