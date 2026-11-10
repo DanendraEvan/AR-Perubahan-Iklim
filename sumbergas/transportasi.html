@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -97,12 +96,124 @@
             width: 60%;
             accent-color: #38bdf8;
         }
+
+        /* ===== Tombol Panah Hide / Show Panel ===== */
+        #btnTogglePanel {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            font-size: 13px;
+            line-height: 26px;
+            text-align: center;
+            cursor: pointer;
+        }
+        #info-panel h2 {
+            padding-right: 30px;
+        }
+        #info-panel.collapsed {
+            width: auto;
+        }
+        #info-panel.collapsed > :not(h2):not(#btnTogglePanel) {
+            display: none;
+        }
+        #info-panel.collapsed h2 {
+            margin-bottom: 0;
+        }
+
+        /* ===== Tampilan Ringkas untuk HP (layar kecil) ===== */
+        @media (max-width: 600px) {
+            #info-panel {
+                top: 6px;
+                left: 6px;
+                width: 170px;
+                max-width: calc(100vw - 12px);
+                max-height: 60vh;
+                overflow-y: auto;
+                padding: 5px 7px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            }
+            #info-panel.collapsed {
+                width: auto;
+            }
+            #info-panel h2 {
+                margin: 0 0 3px 0;
+                font-size: 10.5px;
+                line-height: 1.2;
+                padding-right: 20px;
+            }
+            #info-panel p.subtitle {
+                margin: 0 0 4px 0;
+                font-size: 8px;
+                line-height: 1.25;
+            }
+            .gas-card {
+                padding: 4px 6px;
+                margin-bottom: 4px;
+                border-left-width: 2px;
+                border-radius: 5px;
+            }
+            .gas-header {
+                font-size: 8.5px;
+                margin-bottom: 2px;
+                line-height: 1.2;
+            }
+            .dot {
+                width: 6px;
+                height: 6px;
+                margin-right: 4px;
+                flex: none;
+                box-shadow: 0 0 4px currentColor;
+            }
+            .gas-desc {
+                font-size: 7.5px;
+                line-height: 1.25;
+            }
+            .controls {
+                margin-top: 4px;
+                padding-top: 4px;
+                font-size: 8px;
+            }
+            .slider-group {
+                margin-top: 2px;
+                gap: 4px;
+            }
+            input[type="range"] {
+                width: 50%;
+                height: 12px;
+                margin: 0;
+            }
+            #btnTogglePanel {
+                top: 4px;
+                right: 4px;
+                width: 18px;
+                height: 18px;
+                font-size: 9px;
+                line-height: 18px;
+            }
+        }
+
+        /* HP posisi landscape (tinggi layar pendek) */
+        @media (max-height: 500px) {
+            #info-panel {
+                max-height: calc(100vh - 16px);
+                overflow-y: auto;
+            }
+        }
     </style>
 </head>
 <body>
 
     <!-- Panel Informasi di dalam Layar -->
     <div id="info-panel">
+        <button id="btnTogglePanel" title="Sembunyikan / tampilkan panel">▾</button>
         <h2>Emisi Gas Transportasi</h2>
         <p class="subtitle">Simulasi molekul atom gas buang dari knalpot kendaraan bermotor (Geser mouse untuk memutar kamera).</p>
 
@@ -470,6 +581,14 @@
             activeGasParticles.push(gasAtom);
         }
 
+        // Tombol panah hide / show panel
+        const infoPanel = document.getElementById('info-panel');
+        const btnTogglePanel = document.getElementById('btnTogglePanel');
+        btnTogglePanel.addEventListener('click', () => {
+            const collapsed = infoPanel.classList.toggle('collapsed');
+            btnTogglePanel.textContent = collapsed ? '▸' : '▾';
+        });
+
         // ============================================================================
         // LOOP ANIMASI UTAMA
         // ============================================================================
@@ -552,4 +671,3 @@
     </script>
 </body>
 </html>
-

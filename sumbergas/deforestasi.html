@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -112,11 +111,134 @@
             background-color: #10b981;
             color: white;
         }
+
+        /* ===== Tampilan Ringkas untuk HP (layar kecil) ===== */
+        @media (max-width: 600px) {
+            #info-panel {
+                top: 8px;
+                left: 8px;
+                width: 240px;
+                max-width: calc(100vw - 16px);
+                max-height: 70vh;
+                overflow-y: auto;
+                padding: 8px 10px;
+                border-radius: 10px;
+                box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+            }
+            #info-panel h2 {
+                margin: 0 0 4px 0;
+                font-size: 13px;
+            }
+            #info-panel p.subtitle {
+                margin: 0 0 6px 0;
+                font-size: 10px;
+                line-height: 1.3;
+            }
+            .gas-card {
+                padding: 7px 8px;
+                margin-bottom: 6px;
+                border-left-width: 3px;
+                border-radius: 6px;
+            }
+            .gas-header {
+                font-size: 11.5px;
+                margin-bottom: 3px;
+            }
+            .dot-red {
+                width: 9px;
+                height: 9px;
+                margin-right: 6px;
+            }
+            .gas-desc {
+                font-size: 10px;
+                line-height: 1.3;
+            }
+            .stats-box {
+                padding: 5px 8px;
+                font-size: 10.5px;
+                margin-bottom: 6px;
+                border-radius: 6px;
+            }
+            .btn-group {
+                gap: 5px;
+            }
+            button {
+                padding: 6px 6px;
+                font-size: 10.5px;
+                border-radius: 5px;
+            }
+        }
+
+        /* HP posisi landscape (tinggi layar pendek) */
+        @media (max-height: 500px) {
+            #info-panel {
+                max-height: calc(100vh - 16px);
+                overflow-y: auto;
+            }
+        }
+
+        /* ===== Tombol Hide / Show Panel ===== */
+        #btnHidePanel {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            flex: none;
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            font-size: 13px;
+            line-height: 26px;
+            text-align: center;
+        }
+        #btnShowPanel {
+            display: none;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            flex: none;
+            padding: 8px 12px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            font-size: 12.5px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+        }
+        #info-panel.panel-hidden {
+            display: none;
+        }
+        #info-panel h2 {
+            padding-right: 30px;
+        }
+        @media (max-width: 600px) {
+            #btnHidePanel {
+                top: 6px;
+                right: 6px;
+                width: 22px;
+                height: 22px;
+                font-size: 11px;
+                line-height: 22px;
+            }
+            #btnShowPanel {
+                top: 8px;
+                left: 8px;
+                padding: 6px 10px;
+                font-size: 10.5px;
+            }
+            #info-panel h2 {
+                padding-right: 24px;
+            }
+        }
     </style>
 </head>
 <body>
 
+    <button id="btnShowPanel">ℹ️ Panel</button>
+
     <div id="info-panel">
+        <button id="btnHidePanel" title="Sembunyikan panel">✕</button>
         <h2>Simulasi Deforestasi & Emisi CO₂</h2>
         <p class="subtitle">Klik langsung pada pohon atau gunakan tombol di bawah untuk menebang pohon dan mengamati pelepasan molekul karbon ke atmosfer.</p>
 
@@ -424,7 +546,7 @@
 
         window.addEventListener('pointerdown', (event) => {
             // Abaikan jika klik berada di atas panel UI
-            if (event.target.closest('#info-panel')) return;
+            if (event.target.closest('#info-panel') || event.target.closest('#btnShowPanel')) return;
 
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -458,6 +580,18 @@
             co2Particles.forEach(p => scene.remove(p));
             co2Particles.length = 0;
             populateForest();
+        });
+
+        // Tombol Hide / Show Panel
+        const infoPanel = document.getElementById('info-panel');
+        const btnShowPanel = document.getElementById('btnShowPanel');
+        document.getElementById('btnHidePanel').addEventListener('click', () => {
+            infoPanel.classList.add('panel-hidden');
+            btnShowPanel.style.display = 'block';
+        });
+        btnShowPanel.addEventListener('click', () => {
+            infoPanel.classList.remove('panel-hidden');
+            btnShowPanel.style.display = 'none';
         });
 
         // Inisialisasi awal hutan
@@ -542,4 +676,3 @@
     </script>
 </body>
 </html>
-

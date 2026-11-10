@@ -13,16 +13,30 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%;touch-action:
 #ui{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(260px,calc(100vw - 24px));padding:10px 14px;border-radius:12px;font-size:13px;background:color-mix(in srgb,var(--bg) 80%,transparent);border:1px solid rgba(128,128,128,.3);backdrop-filter:blur(6px)}
 #ui label{display:flex;justify-content:space-between;margin-top:6px}
 #ui input{width:100%;accent-color:#d9531e}
+
+/* ===== Panel diperkecil (±50%) + tombol panah hide ===== */
+#ui{left:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));width:min(130px,calc(100vw - 16px));padding:5px 8px;border-radius:8px;font-size:10px}
+#ui label{margin-top:3px}
+#ui input{height:12px;margin:2px 0 0}
+#uiHead{display:flex;justify-content:space-between;align-items:center}
+#uiToggle{background:none;border:none;color:inherit;font-size:11px;line-height:1;padding:2px 0 2px 6px;cursor:pointer}
+#ui.collapsed{width:auto}
+#ui.collapsed #uiBody{display:none}
 </style>
 </head>
 <body>
 <div id="ui">
-  <b>Pabrik Industri</b>
-  <label><span>Emisi asap</span><span id="e">0.85</span></label>
-  <input type="range" id="er" min="0.2" max="2" step="0.05" value="0.85">
-  <label><span>Kecepatan angin</span><span id="w">18</span></label>
-  <input type="range" id="wr" min="0" max="40" step="1" value="18">
-  <div style="opacity:.65;margin-top:8px">Seret untuk memutar · scroll untuk zoom</div>
+  <div id="uiHead">
+    <b>Pabrik Industri</b>
+    <button id="uiToggle" title="Sembunyikan / tampilkan panel">▾</button>
+  </div>
+  <div id="uiBody">
+    <label><span>Emisi asap</span><span id="e">0.85</span></label>
+    <input type="range" id="er" min="0.2" max="2" step="0.05" value="0.85">
+    <label><span>Kecepatan angin</span><span id="w">18</span></label>
+    <input type="range" id="wr" min="0" max="40" step="1" value="18">
+    <div style="opacity:.65;margin-top:4px;font-size:8.5px;line-height:1.3">Seret untuk memutar · scroll untuk zoom</div>
+  </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -490,6 +504,13 @@ const pabrik = createModelPabrik(scene);
 
 document.getElementById('er').oninput = e => { pabrik.config.emissionRate = +e.target.value; document.getElementById('e').textContent = e.target.value; };
 document.getElementById('wr').oninput = e => { pabrik.config.windSpeed = +e.target.value; document.getElementById('w').textContent = e.target.value; };
+
+// Tombol panah hide / show panel
+document.getElementById('uiToggle').addEventListener('click', () => {
+  const ui = document.getElementById('ui');
+  const collapsed = ui.classList.toggle('collapsed');
+  document.getElementById('uiToggle').textContent = collapsed ? '▸' : '▾';
+});
 
 let th = 0.7, ph = 1.15, dist = 75, drag = false, px = 0, py = 0, auto = true;
 const cv = ren.domElement;
