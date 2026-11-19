@@ -129,13 +129,12 @@
           earth.add(new T.Mesh(new T.SphereGeometry(4.95, 32, 24), new T.MeshLambertMaterial({ color: 0x0b4f9e, side: T.DoubleSide })));
     
           // Cangkang tiap lapisan (disorot saat dipilih), cincin batas, lapisan ozon
-         // Cangkang tiap lapisan (disorot saat dipilih), cincin batas, lapisan ozon
-         const sh = this.sh = {};
-         DATA.forEach(l => {
-           const m = new T.Mesh(new T.SphereGeometry(l.r1, 48, 32), new T.MeshBasicMaterial({ color: l.col, side: T.DoubleSide }));
-           m.renderOrder = Math.round(200 - l.r1 * 10); LG[l.k].add(m); LG[l.k].add(ring(l.r1, 0xffffff, .35)); sh[l.k] = m;
-         });
-         const oz = this.oz = new T.Mesh(new T.SphereGeometry(6.05, 40, 28), new T.MeshBasicMaterial({ color: 0x6ef0b0, side: T.DoubleSide }));
+          const sh = this.sh = {};
+          DATA.forEach(l => {
+            const m = new T.Mesh(new T.SphereGeometry(l.r1, 48, 32), new T.MeshBasicMaterial({ color: l.col, transparent: true, opacity: .13, side: T.DoubleSide, depthWrite: false }));
+            m.renderOrder = Math.round(200 - l.r1 * 10); LG[l.k].add(m); LG[l.k].add(ring(l.r1, 0xffffff, .35)); sh[l.k] = m;
+          });
+          const oz = this.oz = new T.Mesh(new T.SphereGeometry(6.05, 40, 28), new T.MeshBasicMaterial({ color: 0x6ef0b0, transparent: true, opacity: .14, side: T.DoubleSide, depthWrite: false }));
           oz.renderOrder = 150; LG.str.add(oz); LG.str.add(ring(6.05, 0x6ef0b0, .8));
           LG.the.add(ring(7.7, 0xffffff, .8)); LG.exo.add(ring(8.8, 0xffd27a, .8));
     
