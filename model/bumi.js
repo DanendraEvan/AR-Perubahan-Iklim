@@ -22,23 +22,23 @@
       const INFO_JUDUL = 'Lapisan Atmosfer Bumi';
       const INFO_PETUNJUK = 'Pilih salah satu lapisan untuk melihat penjelasan dan benda-benda yang ada di dalamnya.';
       const DATA = [
-        { k: 'exo', n: 'Eksosfer', alt: '600 – 10.000 km', r0: 8.8, r1: 10.4, col: 0x2b4aa8, sol: 0x1b3585,
+        { k: 'exo', n: 'Eksosfer', alt: '600 – 10.000 km', r0: 8.8, r1: 10.4, col: 0x8b5cf6, sol: 0x6d28d9,
           tp: 'Sangat jarang; udara hampir hampa',
           d: 'Lapisan terluar atmosfer. Gas hidrogen dan helium sangat renggang dan sebagian bisa lepas ke ruang angkasa. Batas bawahnya disebut eksobase.',
           it: ['Satelit GPS', 'Satelit komunikasi', 'Teleskop luar angkasa', 'Partikel hidrogen dan helium'] },
-        { k: 'the', n: 'Termosfer', alt: '85 – 600 km', r0: 7.4, r1: 8.8, col: 0x2f66c4, sol: 0x2552a6,
+        { k: 'the', n: 'Termosfer', alt: '85 – 600 km', r0: 7.4, r1: 8.8, col: 0xef4444, sol: 0xb91c1c,
           tp: 'Naik hingga sekitar 2.000 °C, tetapi udaranya sangat tipis',
           d: 'Atom gas menyerap sinar-X dan ultraviolet Matahari sehingga suhunya tinggi. Garis Karman (100 km) dianggap batas ruang angkasa. Aurora muncul di sini, dan stasiun luar angkasa mengorbit di lapisan ini.',
           it: ['Stasiun luar angkasa', 'Roket', 'Satelit orbit rendah', 'Aurora'] },
-        { k: 'mes', n: 'Mesosfer', alt: '50 – 85 km', r0: 6.5, r1: 7.4, col: 0x3f7fd8, sol: 0x3568bd,
+        { k: 'mes', n: 'Mesosfer', alt: '50 – 85 km', r0: 6.5, r1: 7.4, col: 0xf59e0b, sol: 0xd97706,
           tp: 'Lapisan terdingin, hingga sekitar −90 °C',
           d: 'Pelindung Bumi dari benda antariksa. Sebagian besar meteoroid terbakar akibat gesekan dengan udara dan tampak sebagai bintang jatuh.',
           it: ['Meteor (bintang jatuh)'] },
-        { k: 'str', n: 'Stratosfer', alt: '12 – 50 km', r0: 5.7, r1: 6.5, col: 0x5aa0ee, sol: 0x4a8bdc,
+        { k: 'str', n: 'Stratosfer', alt: '12 – 50 km', r0: 5.7, r1: 6.5, col: 0x10b981, sol: 0x059669,
           tp: 'Naik dari sekitar −60 °C hingga sekitar 0 °C',
           d: 'Udaranya tenang dan kering. Lapisan ozon di dalamnya menyerap sebagian besar sinar ultraviolet berbahaya dari Matahari.',
           it: ['Lapisan ozon', 'Pesawat jet tempur', 'Balon cuaca'] },
-        { k: 'tro', n: 'Troposfer', alt: '0 – 12 km', r0: 5, r1: 5.7, col: 0x8ccaff, sol: 0x74b8f5,
+        { k: 'tro', n: 'Troposfer', alt: '0 – 12 km', r0: 5, r1: 5.7, col: 0x38bdf8, sol: 0x0284c7,
           tp: 'Turun sekitar 6,5 °C setiap naik 1 km',
           d: 'Lapisan tempat kita hidup. Awan, hujan, angin, dan hampir semua peristiwa cuaca terjadi di sini.',
           it: ['Awan', 'Balon udara', 'Pesawat penumpang'] }
@@ -206,7 +206,6 @@
           orbit(rocket(2), 7.75, .32, [-.4, 0, -.8], 2);
           orbit(sat(2), 8.4, -.25, [.2, 0, 1.2], 1);
           orbit(sat(1.8, 0xb8c0cc), 8.4, .18, [-1, 0, .2], 3.5);
-          const auro = this.auro = []; [1, -1].forEach(k => { const a = new T.Mesh(new T.TorusGeometry(2.7, .14, 6, 56), new T.MeshBasicMaterial({ color: 0x5dffa0, transparent: true, opacity: .6 })); a.rotation.x = Math.PI / 2; a.position.y = 7.45 * k; LG.the.add(a); auro.push(a); });
           // Eksosfer
           cur = 'exo';
           orbit(sat(1.8), 9.3, .17, [.5, 0, .4], 0);
@@ -246,7 +245,6 @@
             this.orb.forEach(o => { o.g.rotation.y += o.s * dt; });
             this.mets.forEach(m => { m.t += m.sp * dt; if (m.t > 1) { m.t = 0; m.d = rdir(); }
               m.g.position.copy(m.d).multiplyScalar(7.4 - m.t * .9); m.g.lookAt(0, 0, 0); m.g.scale.setScalar(Math.max(.02, 1 - m.t * m.t * .95)); });
-            this.auro.forEach((a, i) => { a.material.opacity = .4 + .25 * Math.sin(this.tm * 1.6 + i * 2); });
           }
           // Sorotan lapisan terpilih (halus)
           const k = Math.min(1, dt * 6);
