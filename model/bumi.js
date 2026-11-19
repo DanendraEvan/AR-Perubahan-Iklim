@@ -17,28 +17,29 @@
       /* =====================================================================
          DATA INFORMASI (edit teks di sini; urutan dari lapisan terluar ke terdalam)
          k = kunci, n = nama, alt = ketinggian, r0/r1 = jari-jari dalam/luar model,
-         col = warna cangkang, sol = warna potongan, tp = suhu, d = penjelasan, it = isi/benda
+         col = warna cangkang, sol = warna potongan, bd = warna garis pembatas (batas luar lapisan),
+         tp = suhu, d = penjelasan, it = isi/benda
          ===================================================================== */
       const INFO_JUDUL = 'Lapisan Atmosfer Bumi';
       const INFO_PETUNJUK = 'Pilih salah satu lapisan untuk melihat penjelasan dan benda-benda yang ada di dalamnya.';
       const DATA = [
-        { k: 'exo', n: 'Eksosfer', alt: '600 – 10.000 km', r0: 8.8, r1: 10.4, col: 0x8b5cf6, sol: 0x6d28d9,
+        { k: 'exo', n: 'Eksosfer', alt: '600 – 10.000 km', r0: 8.8, r1: 10.4, col: 0x8b5cf6, sol: 0x6d28d9, bd: 0xd500f9,
           tp: 'Sangat jarang; udara hampir hampa',
           d: 'Lapisan terluar atmosfer. Gas hidrogen dan helium sangat renggang dan sebagian bisa lepas ke ruang angkasa. Batas bawahnya disebut eksobase.',
           it: ['Satelit GPS', 'Satelit komunikasi', 'Teleskop luar angkasa', 'Partikel hidrogen dan helium'] },
-        { k: 'the', n: 'Termosfer', alt: '85 – 600 km', r0: 7.4, r1: 8.8, col: 0xef4444, sol: 0xb91c1c,
+        { k: 'the', n: 'Termosfer', alt: '85 – 600 km', r0: 7.4, r1: 8.8, col: 0xef4444, sol: 0xb91c1c, bd: 0xff1744,
           tp: 'Naik hingga sekitar 2.000 °C, tetapi udaranya sangat tipis',
           d: 'Atom gas menyerap sinar-X dan ultraviolet Matahari sehingga suhunya tinggi. Garis Karman (100 km) dianggap batas ruang angkasa. Aurora muncul di sini, dan stasiun luar angkasa mengorbit di lapisan ini.',
           it: ['Stasiun luar angkasa', 'Roket', 'Satelit orbit rendah', 'Aurora'] },
-        { k: 'mes', n: 'Mesosfer', alt: '50 – 85 km', r0: 6.5, r1: 7.4, col: 0xf59e0b, sol: 0xd97706,
+        { k: 'mes', n: 'Mesosfer', alt: '50 – 85 km', r0: 6.5, r1: 7.4, col: 0xf59e0b, sol: 0xd97706, bd: 0xffab00,
           tp: 'Lapisan terdingin, hingga sekitar −90 °C',
           d: 'Pelindung Bumi dari benda antariksa. Sebagian besar meteoroid terbakar akibat gesekan dengan udara dan tampak sebagai bintang jatuh.',
           it: ['Meteor (bintang jatuh)'] },
-        { k: 'str', n: 'Stratosfer', alt: '12 – 50 km', r0: 5.7, r1: 6.5, col: 0x10b981, sol: 0x059669,
+        { k: 'str', n: 'Stratosfer', alt: '12 – 50 km', r0: 5.7, r1: 6.5, col: 0x10b981, sol: 0x059669, bd: 0x76ff03,
           tp: 'Naik dari sekitar −60 °C hingga sekitar 0 °C',
           d: 'Udaranya tenang dan kering. Lapisan ozon di dalamnya menyerap sebagian besar sinar ultraviolet berbahaya dari Matahari.',
           it: ['Lapisan ozon', 'Pesawat jet tempur', 'Balon cuaca'] },
-        { k: 'tro', n: 'Troposfer', alt: '0 – 12 km', r0: 5, r1: 5.7, col: 0x38bdf8, sol: 0x0284c7,
+        { k: 'tro', n: 'Troposfer', alt: '0 – 12 km', r0: 5, r1: 5.7, col: 0x38bdf8, sol: 0x0284c7, bd: 0x00e5ff,
           tp: 'Turun sekitar 6,5 °C setiap naik 1 km',
           d: 'Lapisan tempat kita hidup. Awan, hujan, angin, dan hampir semua peristiwa cuaca terjadi di sini.',
           it: ['Awan', 'Balon udara', 'Pesawat penumpang'] }
@@ -103,7 +104,8 @@
           const cone = (r, l, m, z, dir) => { const o = new T.Mesh(new T.ConeGeometry(r, l, 8), m); o.rotation.x = dir * Math.PI / 2; o.position.z = z; return o; };
           const fin = (g, s) => { g.scale.setScalar(s); return g; };
           const SOL = () => M(0x2a4fb0, 0x0a1a50);
-          const ring = (r, c, o) => { const p = []; for (let i = 0; i <= 96; i++) p.push(new T.Vector3(Math.cos(i / 96 * TAU) * r, Math.sin(i / 96 * TAU) * r, 0)); return new T.Line(new T.BufferGeometry().setFromPoints(p), new T.LineBasicMaterial({ color: c, transparent: true, opacity: o })); };
+          // Cincin pembatas: pipa tipis (torus) agar terlihat jelas; t = tebal pipa (opsional)
+          const ring = (r, c, o, t) => { const m = new T.Mesh(new T.TorusGeometry(r, t || .06, 8, 96), new T.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false })); m.renderOrder = 300; return m; };
     
           // Bumi (low-poly, sama dengan demo)
           const BL = [[5,20,30,22],[-17,25,16,16],[27,15,12,28],[50,60,20,60],[32,95,22,30],[25,50,10,14],[60,20,12,25],[20,78,10,8],[-2,115,5,14],[-3,135,4,10],[47,-100,20,28],[65,-105,12,35],[20,-100,10,12],[72,-40,9,14],[-10,-60,20,14],[-32,-66,18,9],[-25,135,10,17],[-40,172,6,4]];
@@ -128,15 +130,15 @@
           earth.add(new T.Mesh(g, new T.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
           earth.add(new T.Mesh(new T.SphereGeometry(4.95, 32, 24), new T.MeshLambertMaterial({ color: 0x0b4f9e, side: T.DoubleSide })));
     
-          // Cangkang tiap lapisan (disorot saat dipilih), cincin batas, lapisan ozon
+          // Cangkang tiap lapisan (disorot saat dipilih), cincin batas (warna berbeda tiap lapisan), lapisan ozon
           const sh = this.sh = {};
           DATA.forEach(l => {
-            const m = new T.Mesh(new T.SphereGeometry(l.r1, 48, 32), new T.MeshBasicMaterial({ color: l.col, transparent: true, opacity: .13, side: T.DoubleSide, depthWrite: false }));
-            m.renderOrder = Math.round(200 - l.r1 * 10); LG[l.k].add(m); LG[l.k].add(ring(l.r1, 0xffffff, .35)); sh[l.k] = m;
+            const m = new T.Mesh(new T.SphereGeometry(l.r1, 48, 32), new T.MeshBasicMaterial({ color: l.col, transparent: true, opacity: .26, side: T.DoubleSide, depthWrite: false }));
+            m.renderOrder = Math.round(200 - l.r1 * 10); LG[l.k].add(m); LG[l.k].add(ring(l.r1, l.bd, .95)); sh[l.k] = m;
           });
           const oz = this.oz = new T.Mesh(new T.SphereGeometry(6.05, 40, 28), new T.MeshBasicMaterial({ color: 0x6ef0b0, transparent: true, opacity: .14, side: T.DoubleSide, depthWrite: false }));
-          oz.renderOrder = 150; LG.str.add(oz); LG.str.add(ring(6.05, 0x6ef0b0, .8));
-          LG.the.add(ring(7.7, 0xffffff, .8)); LG.exo.add(ring(8.8, 0xffd27a, .8));
+          oz.renderOrder = 150; LG.str.add(oz); LG.str.add(ring(6.05, 0x6ef0b0, .8, .03));
+          LG.the.add(ring(7.7, 0xffffff, .8, .03)); LG.exo.add(ring(8.8, DATA[1].bd, .95));
     
           // Potongan penampang (tampil saat Mode potongan aktif)
           const cut = this.cut = new T.Group(); cut.visible = false; root.add(cut);
@@ -248,7 +250,7 @@
           }
           // Sorotan lapisan terpilih (halus)
           const k = Math.min(1, dt * 6);
-          DATA.forEach(l => { const m = this.sh[l.k].material, to = this.sel === l.k ? .34 : .13; m.opacity += (to - m.opacity) * k; });
+          DATA.forEach(l => { const m = this.sh[l.k].material, to = this.sel === l.k ? .55 : .26; m.opacity += (to - m.opacity) * k; });
           const mo = this.oz.material, tz = this.sel === 'str' ? .3 : .14; mo.opacity += (tz - mo.opacity) * k;
           // Bidang potong mengikuti model (koordinat dunia)
           if (this.cutOn) {
