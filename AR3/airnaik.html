@@ -158,11 +158,6 @@
     .checkbox-wrap input[type="checkbox"]:hover {
       border-color: #ffb347;
     }
-    #vidBtn {
-      text-align: center;
-      font-weight: 500;
-      margin-top: 4px;
-    }
     #errors {
       color: #ff8080;
       font-size: 10px;
@@ -220,36 +215,6 @@
       background: rgba(120, 190, 255, 0.25);
       margin: 12px 0;
     }
-    #videoView {
-      position: fixed;
-      inset: 0;
-      z-index: 5;
-      background: radial-gradient(circle at center, #0a182e 0%, #030814 60%, #02050d 100%);
-    }
-    #videoView[hidden] {
-      display: none;
-    }
-    #videoView .layer-webgl {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-    }
-    #videoView .layer-css3d {
-      position: absolute;
-      inset: 0;
-    }
-    .video-frame-container {
-      width: 960px;
-      height: 540px;
-      background: #000;
-      border: 0;
-    }
-    .video-frame-container iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-    }
     @media (max-width: 600px) {
       #panel {
         top: 0;
@@ -292,11 +257,6 @@
     <canvas id="c"></canvas>
   </div>
 
-  <div id="videoView" hidden>
-    <div id="videoWebGL" class="layer-webgl"></div>
-    <div id="videoCSS3D" class="layer-css3d"></div>
-  </div>
-
   <aside id="panel">
     <div class="panel-header">
       <h1>AIR NAIK</h1>
@@ -336,8 +296,6 @@
         Tombol 1–N di keyboard untuk ganti tahap. Seret untuk memutar, scroll untuk zoom.
       </div>
     </div>
-
-    <button id="vidBtn" type="button">Ubah ke video</button>
   </aside>
 
   <section id="info">
@@ -362,18 +320,12 @@
       }
     ];
 
-    const VIDEO_ID = 'GANTI_DENGAN_ID_VIDEO';
-
-    const info = document.getElementById('info');
     const infoBody = document.getElementById('infoBody');
     const tabs = document.getElementById('tabs');
     const allCheckbox = document.getElementById('all');
     const togglePanel = document.getElementById('togglePanel');
     const panel = document.getElementById('panel');
     const panelContent = document.getElementById('panelContent');
-    const vidBtn = document.getElementById('vidBtn');
-    const videoView = document.getElementById('videoView');
-    const errors = document.getElementById('errors');
 
     function renderStageInfo(activeIndex) {
       if (allCheckbox.checked) {
@@ -427,196 +379,6 @@
         togglePanel.setAttribute('title', 'Kecilkan menu');
       }
     });
-
-    let isVideoMode = false;
-    let video3DInitialized = false;
-    let videoIframe = null;
-    let startVideoLoop = null;
-    let stopVideoLoop = null;
-    let resizeVideo3D = null;
-
-    vidBtn.addEventListener('click', async () => {
-      if (!isVideoMode) {
-        try {
-          if (!video3DInitialized) {
-            await initVideo3D();
-            video3DInitialized = true;
-          }
-          videoView.hidden = false;
-          info.hidden = true;
-          vidBtn.textContent = 'Ubah ke 3D model';
-          isVideoMode = true;
-          if (videoIframe) {
-            videoIframe.src = `https://www.youtube.com/embed/${VIDEO_ID}?autoplay=1&rel=0`;
-          }
-          if (startVideoLoop) startVideoLoop();
-        } catch (err) {
-          console.error(err);
-          errors.textContent = 'Mode video gagal: ' + err.message;
-        }
-      } else {
-        videoView.hidden = true;
-        info.hidden = false;
-        vidBtn.textContent = 'Ubah ke video';
-        isVideoMode = false;
-        if (videoIframe) {
-          videoIframe.src = 'about:blank';
-        }
-        if (stopVideoLoop) stopVideoLoop();
-      }
-    });
-
-    async function initVideo3D() {
-      const THREE = await import('three');
-      const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
-      const { CSS3DRenderer, CSS3DObject } = await import('three/addons/renderers/CSS3DRenderer.js');
-
-      const containerGL = document.getElementById('videoWebGL');
-      const containerCSS = document.getElementById('videoCSS3D');
-
-      const sceneGL = new THREE.Scene();
-      const sceneCSS = new THREE.Scene();
-
-      const fov = 45;
-      const camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 1, 5000);
-
-      const rendererGL = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-      rendererGL.setSize(window.innerWidth, window.innerHeight);
-      rendererGL.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      containerGL.appendChild(rendererGL.domElement);
-
-      const rendererCSS = new CSS3DRenderer();
-      rendererCSS.setSize(window.innerWidth, window.innerHeight);
-      containerCSS.appendChild(rendererCSS.domElement);
-
-      const controls = new OrbitControls(camera, rendererCSS.domElement);
-      controls.enablePan = false;
-      controls.enableDamping = true;
-      controls.minAzimuthAngle = -0.7;
-      controls.maxAzimuthAngle = 0.7;
-      controls.minPolarAngle = Math.PI / 2 - 0.45;
-      controls.maxPolarAngle = Math.PI / 2 + 0.45;
-
-      const screenW = 960;
-      const screenH = 540;
-      const margin = 22;
-      const depth = 34;
-
-      function updateCameraDistance() {
-        const totalW = screenW + margin * 2;
-        const totalH = screenH + margin * 2;
-        const aspect = window.innerWidth / window.innerHeight;
-        const distV = (totalH / 2) / Math.tan((fov * Math.PI / 180) / 2);
-        const distH = (totalW / 2) / Math.tan(((fov * Math.PI / 180) / 2) * aspect);
-        const fitDist = Math.max(distV, distH) * 1.05;
-        camera.position.set(0, 0, fitDist);
-        controls.minDistance = fitDist * 0.6;
-        controls.maxDistance = fitDist * 2.0;
-        controls.target.set(0, 0, 0);
-        controls.update();
-      }
-      updateCameraDistance();
-
-      const boxW = screenW + margin * 2;
-      const boxH = screenH + margin * 2;
-      const frameGeo = new THREE.BoxGeometry(boxW, boxH, depth);
-      const faceMaterials = [
-        new THREE.MeshBasicMaterial({ color: 0x0d1f38 }),
-        new THREE.MeshBasicMaterial({ color: 0x091629 }),
-        new THREE.MeshBasicMaterial({ color: 0x142b4d }),
-        new THREE.MeshBasicMaterial({ color: 0x081324 }),
-        new THREE.MeshBasicMaterial({ color: 0x040a14 }),
-        new THREE.MeshBasicMaterial({ color: 0x102440 })
-      ];
-      const frameMesh = new THREE.Mesh(frameGeo, faceMaterials);
-      frameMesh.position.z = -depth / 2;
-
-      const edgesGeo = new THREE.EdgesGeometry(frameGeo);
-      const edgesLine = new THREE.LineSegments(edgesGeo, new THREE.LineBasicMaterial({ color: 0xffb347 }));
-      frameMesh.add(edgesLine);
-
-      const floatGroup = new THREE.Group();
-      floatGroup.add(frameMesh);
-      sceneGL.add(floatGroup);
-
-      const starGeo = new THREE.BufferGeometry();
-      const starCount = 900;
-      const starPos = new Float32Array(starCount * 3);
-      const starCol = new Float32Array(starCount * 3);
-      const colWhite = new THREE.Color(0xffffff);
-      const colAmber = new THREE.Color(0xffb347);
-
-      for (let i = 0; i < starCount; i++) {
-        starPos[i * 3] = (Math.random() - 0.5) * 3200;
-        starPos[i * 3 + 1] = (Math.random() - 0.5) * 2200;
-        starPos[i * 3 + 2] = (Math.random() - 0.5) * 2200 - 300;
-        const isAmber = Math.random() < 0.12;
-        const c = isAmber ? colAmber : colWhite;
-        starCol[i * 3] = c.r;
-        starCol[i * 3 + 1] = c.g;
-        starCol[i * 3 + 2] = c.b;
-      }
-      starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-      starGeo.setAttribute('color', new THREE.BufferAttribute(starCol, 3));
-      const starMat = new THREE.PointsMaterial({ size: 3, vertexColors: true, transparent: true, opacity: 0.8 });
-      const starPoints = new THREE.Points(starGeo, starMat);
-      sceneGL.add(starPoints);
-
-      const div = document.createElement('div');
-      div.className = 'video-frame-container';
-      videoIframe = document.createElement('iframe');
-      videoIframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-      videoIframe.allowFullscreen = true;
-      div.appendChild(videoIframe);
-
-      const cssObj = new CSS3DObject(div);
-      cssObj.position.set(0, 0, 1);
-
-      const cssFloatGroup = new THREE.Group();
-      cssFloatGroup.add(cssObj);
-      sceneCSS.add(cssFloatGroup);
-
-      let animId = null;
-      let startTime = performance.now();
-
-      function render() {
-        animId = requestAnimationFrame(render);
-        const elapsed = (performance.now() - startTime) * 0.001;
-        const floatY = Math.sin(elapsed * 0.9) * 14;
-        floatGroup.position.y = floatY;
-        cssFloatGroup.position.y = floatY;
-        starPoints.rotation.y = elapsed * 0.02;
-        starPoints.rotation.x = elapsed * 0.01;
-        controls.update();
-        rendererGL.render(sceneGL, camera);
-        rendererCSS.render(sceneCSS, camera);
-      }
-
-      startVideoLoop = () => {
-        if (!animId) {
-          startTime = performance.now();
-          render();
-        }
-      };
-
-      stopVideoLoop = () => {
-        if (animId) {
-          cancelAnimationFrame(animId);
-          animId = null;
-        }
-      };
-
-      resizeVideo3D = () => {
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-        rendererGL.setSize(w, h);
-        rendererCSS.setSize(w, h);
-        updateCameraDistance();
-      };
-      window.addEventListener('resize', resizeVideo3D);
-    }
   </script>
 </body>
 </html>
