@@ -3,41 +3,97 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Model Pabrik Low-Poly</title>
+<title>Model Pabrik Low-Poly & Emisi CO₂</title>
 <style>
-:root{--bg:#b9c7d4;--text:#17202a;color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a2230;--text:#e6ecf2}}
-:root[data-theme="dark"]{--bg:#1a2230;--text:#e6ecf2}
+:root{--bg:#b9c7d4;--text:#17202a;--card:rgba(255,255,255,.82);color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a2230;--text:#e6ecf2;--card:rgba(26,34,48,.86)}}
+:root[data-theme="dark"]{--bg:#1a2230;--text:#e6ecf2;--card:rgba(26,34,48,.86)}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;overflow:hidden}
 canvas{display:block;position:fixed;inset:0;width:100%;height:100%;touch-action:none}
-#ui{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));width:min(260px,calc(100vw - 24px));padding:10px 14px;border-radius:12px;font-size:13px;background:color-mix(in srgb,var(--bg) 80%,transparent);border:1px solid rgba(128,128,128,.3);backdrop-filter:blur(6px)}
-#ui label{display:flex;justify-content:space-between;margin-top:6px}
-#ui input{width:100%;accent-color:#d9531e}
 
-/* ===== Panel diperkecil (±50%) + tombol panah hide ===== */
-#ui{left:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));width:min(130px,calc(100vw - 16px));padding:5px 8px;border-radius:8px;font-size:10px}
-#ui label{margin-top:3px}
-#ui input{height:12px;margin:2px 0 0}
-#uiHead{display:flex;justify-content:space-between;align-items:center}
+/* ===== Panel kontrol mungil ramah HP ===== */
+#ui{
+  position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));
+  width:min(148px,calc(100vw - 16px));padding:6px 8px;border-radius:8px;
+  font-size:10px;background:var(--card);border:1px solid rgba(128,128,128,.32);
+  backdrop-filter:blur(6px);z-index:10
+}
+#uiHead{display:flex;justify-content:space-between;align-items:center;gap:4px}
 #uiToggle{background:none;border:none;color:inherit;font-size:11px;line-height:1;padding:2px 0 2px 6px;cursor:pointer}
 #ui.collapsed{width:auto}
 #ui.collapsed #uiBody{display:none}
+#ui label{display:flex;justify-content:space-between;align-items:center;margin-top:4px;gap:4px}
+#ui input[type="range"]{width:100%;height:12px;margin:2px 0 0;accent-color:#d9531e}
+.rowToggle{display:flex;align-items:center;justify-content:space-between;margin-top:5px}
+.rowToggle input[type="checkbox"]{margin:0;accent-color:#e63946;width:12px;height:12px}
+#infoBtn{
+  margin-top:6px;width:100%;padding:4px 6px;border-radius:6px;
+  border:1px solid rgba(217,83,30,.45);background:rgba(217,83,30,.14);
+  color:inherit;font-size:9.5px;font-weight:600;cursor:pointer
+}
+#infoBtn:active{transform:scale(.97)}
+
+/* ===== Kartu penjelasan CO2 (kompak untuk HP) ===== */
+#co2Card{
+  position:fixed;right:8px;top:calc(8px + env(safe-area-inset-top,0px));
+  width:min(215px,calc(100vw - 16px));max-height:52vh;overflow-y:auto;
+  padding:8px 10px;border-radius:10px;font-size:10px;line-height:1.4;
+  background:var(--card);border:1px solid rgba(128,128,128,.35);
+  backdrop-filter:blur(8px);z-index:11;display:none
+}
+#co2Card.open{display:block}
+#co2Head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+#co2Close{background:none;border:none;color:inherit;font-size:12px;cursor:pointer;padding:0 2px;line-height:1}
+.molDiagram{
+  display:flex;align-items:center;justify-content:center;gap:3px;
+  padding:5px;margin:5px 0;border-radius:6px;background:rgba(128,128,128,.12)
+}
+.atom{
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:50%;color:#fff;font-weight:700;font-size:9px
+}
+.atom.o{width:18px;height:18px;background:#e63946}
+.atom.c{width:22px;height:22px;background:#2b2d42}
+.bond{font-weight:700;font-size:11px;opacity:.75;letter-spacing:-1px}
+#co2Card p{margin:4px 0}
 </style>
 </head>
 <body>
+
 <div id="ui">
   <div id="uiHead">
     <b>Pabrik Industri</b>
     <button id="uiToggle" title="Sembunyikan / tampilkan panel">▾</button>
   </div>
   <div id="uiBody">
-    <label><span>Emisi asap</span><span id="e">0.85</span></label>
-    <input type="range" id="er" min="0.2" max="2" step="0.05" value="0.85">
-    <label><span>Kecepatan angin</span><span id="w">18</span></label>
-    <input type="range" id="wr" min="0" max="40" step="1" value="18">
-    <div style="opacity:.65;margin-top:4px;font-size:8.5px;line-height:1.3">Seret untuk memutar · scroll untuk zoom</div>
+    <label><span>Intensitas asap</span><span id="e">Sedang</span></label>
+    <input type="range" id="er" min="0.1" max="1" step="0.05" value="0.5">
+    <label class="rowToggle">
+      <span>Molekul CO₂</span>
+      <input type="checkbox" id="co2Toggle" checked>
+    </label>
+    <button id="infoBtn" type="button">ⓘ Info CO₂</button>
+    <div style="opacity:.65;margin-top:4px;font-size:8.5px;line-height:1.25">Seret putar · cubit/scroll zoom</div>
   </div>
 </div>
+
+<div id="co2Card" role="dialog" aria-label="Penjelasan Karbon Dioksida">
+  <div id="co2Head">
+    <b>Karbon Dioksida (CO₂)</b>
+    <button id="co2Close" title="Tutup">✕</button>
+  </div>
+  <div class="molDiagram" aria-label="Struktur molekul O sama dengan C sama dengan O">
+    <span class="atom o">O</span>
+    <span class="bond">=</span>
+    <span class="atom c">C</span>
+    <span class="bond">=</span>
+    <span class="atom o">O</span>
+  </div>
+  <p><b>Struktur:</b> 1 atom Karbon (abu-abu gelap) terikat rangkap dengan 2 atom Oksigen (merah) membentuk garis lurus.</p>
+  <p><b>Sumber di Pabrik:</b> Pembakaran batu bara, minyak, atau gas alam pada tungku &amp; boiler melepaskan gas CO₂ lewat cerobong asap.</p>
+  <p><b>Dampak:</b> Semakin tebal intensitas asap, semakin banyak molekul CO₂ yang naik ke atmosfer, memerangkap panas, dan memicu pemanasan global.</p>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 function createModelPabrik(scene = null) {
@@ -343,7 +399,7 @@ function createModelPabrik(scene = null) {
     createCargoTruck(-7, 13.5, 0, 0xd97706);
     createCargoTruck(9, 13.5, Math.PI, 0x2563eb);
 
-    // 6. Asap volumetrik
+    // 6. Asap vertikal (tipis -> tebal, tanpa tiupan angin menyamping)
     const smokeParticlesGroup = new THREE.Group();
     smokeParticlesGroup.name = 'KepulanAsapPabrik';
     rootGroup.add(smokeParticlesGroup);
@@ -351,28 +407,75 @@ function createModelPabrik(scene = null) {
     const smokeGeoLowPoly = new THREE.DodecahedronGeometry(1.0, 1);
     const activeParticles = [];
 
+    // 7. Molekul CO2 (O = C = O)
+    const co2Group = new THREE.Group();
+    co2Group.name = 'MolekulCO2';
+    rootGroup.add(co2Group);
+
+    const co2GeoC = new THREE.SphereGeometry(0.55, 12, 10);
+    const co2GeoO = new THREE.SphereGeometry(0.46, 12, 10);
+    const co2GeoBond = new THREE.CylinderGeometry(0.075, 0.075, 1.05, 8);
+    const co2MatC = new THREE.MeshStandardMaterial({ color: 0x2b2d42, roughness: 0.35, metalness: 0.25 });
+    const co2MatO = new THREE.MeshStandardMaterial({ color: 0xe63946, roughness: 0.3, metalness: 0.15 });
+    const co2MatBond = new THREE.MeshStandardMaterial({ color: 0xdbe2ea, roughness: 0.4, metalness: 0.4 });
+    const activeMolecules = [];
+
+    function createCO2Mesh() {
+        const mol = new THREE.Group();
+        const cAtom = new THREE.Mesh(co2GeoC, co2MatC);
+        mol.add(cAtom);
+
+        const oLeft = new THREE.Mesh(co2GeoO, co2MatO);
+        oLeft.position.x = -1.15;
+        mol.add(oLeft);
+
+        const oRight = new THREE.Mesh(co2GeoO, co2MatO);
+        oRight.position.x = 1.15;
+        mol.add(oRight);
+
+        // Ikatan rangkap dua (=) kiri & kanan
+        [-0.58, 0.58].forEach(bx => {
+            [-0.13, 0.13].forEach(by => {
+                const bond = new THREE.Mesh(co2GeoBond, co2MatBond);
+                bond.rotation.z = Math.PI / 2;
+                bond.position.set(bx, by, 0);
+                mol.add(bond);
+            });
+        });
+
+        return mol;
+    }
+
+    const config = { intensity: 0.5, showCO2: true };
+
     function spawnSmokePuff(emitter) {
         const isCooling = emitter.type === 'cooling';
-        const baseColor = isCooling ? new THREE.Color(0xcbd5e1) : new THREE.Color(0x525b66);
+        const t = config.intensity; // 0.1 (tipis) .. 1.0 (tebal)
+
+        // Semakin tinggi intensitas, semakin gelap/pekat dan besar kepulannya
+        const lightness = isCooling ? (0.86 - t * 0.18) : (0.68 - t * 0.44);
+        const baseColor = new THREE.Color().setHSL(0.6, 0.07, lightness);
+        const baseOpacity = isCooling ? (0.18 + t * 0.52) : (0.20 + t * 0.72);
 
         const puffMat = new THREE.MeshStandardMaterial({
             color: baseColor, roughness: 0.95, metalness: 0.05, flatShading: true,
-            transparent: true, opacity: isCooling ? 0.78 : 0.88
+            transparent: true, opacity: 0
         });
 
         const mesh = new THREE.Mesh(smokeGeoLowPoly, puffMat);
-        mesh.castShadow = true;
+        mesh.castShadow = t > 0.35;
         mesh.receiveShadow = false;
 
-        const initialScale = emitter.radius * (0.75 + Math.random() * 0.45);
-        mesh.scale.set(initialScale, initialScale * 0.85, initialScale);
+        const thicknessMul = 0.55 + t * 0.75; // tipis -> tebal
+        const initialScale = emitter.radius * thicknessMul * (0.8 + Math.random() * 0.35);
+        mesh.scale.set(initialScale, initialScale * 0.9, initialScale);
 
         const spreadAngle = Math.random() * Math.PI * 2;
-        const spreadDist = Math.random() * (emitter.radius * 0.45);
+        const spreadDist = Math.random() * (emitter.radius * 0.35);
 
         mesh.position.set(
             emitter.x + Math.cos(spreadAngle) * spreadDist,
-            emitter.y + (Math.random() * 0.4),
+            emitter.y + Math.random() * 0.35,
             emitter.z + Math.sin(spreadAngle) * spreadDist
         );
         mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
@@ -383,58 +486,109 @@ function createModelPabrik(scene = null) {
             mesh,
             emitterType: emitter.type,
             age: 0,
-            maxLife: 6.5 + Math.random() * 3.5,
+            maxLife: 5.5 + t * 3.0 + Math.random() * 2.0,
             initialScale,
-            baseOpacity: isCooling ? 0.78 : 0.88,
+            baseOpacity,
+            intensityAtSpawn: t,
             velocity: new THREE.Vector3(
-                (Math.random() - 0.5) * 0.9,
-                (isCooling ? 3.2 : 4.6) + Math.random() * 1.4,
-                (Math.random() - 0.5) * 0.9
+                (Math.random() - 0.5) * 0.35,
+                (isCooling ? 3.0 : 4.2) + Math.random() * 1.0,
+                (Math.random() - 0.5) * 0.35
             ),
             rotSpeed: new THREE.Vector3(
-                (Math.random() - 0.5) * 1.1,
-                (Math.random() - 0.5) * 1.1,
-                (Math.random() - 0.5) * 1.1
+                (Math.random() - 0.5) * 0.8,
+                (Math.random() - 0.5) * 0.8,
+                (Math.random() - 0.5) * 0.8
             ),
             turbulenceSeed: Math.random() * 100
         });
     }
 
-    const config = { emissionRate: 0.85, windSpeed: 18 };
-    let spawnAccumulator = 0;
+    function spawnCO2Molecule(emitter) {
+        const mesh = createCO2Mesh();
+        const angle = Math.random() * Math.PI * 2;
+        const dist = emitter.radius * (0.6 + Math.random() * 0.9);
+        mesh.position.set(
+            emitter.x + Math.cos(angle) * dist,
+            emitter.y + 0.8 + Math.random() * 1.2,
+            emitter.z + Math.sin(angle) * dist
+        );
+        mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+        mesh.scale.setScalar(0.01);
+        co2Group.add(mesh);
 
-    // Pre-warm
-    for (let w = 0; w < 50; w++) {
+        activeMolecules.push({
+            mesh,
+            age: 0,
+            maxLife: 5.2 + Math.random() * 2.2,
+            baseScale: 0.72 + Math.random() * 0.25,
+            velocity: new THREE.Vector3(
+                Math.cos(angle) * (0.45 + Math.random() * 0.4),
+                3.6 + Math.random() * 1.1,
+                Math.sin(angle) * (0.45 + Math.random() * 0.4)
+            ),
+            rotSpeed: new THREE.Vector3(
+                (Math.random() - 0.5) * 1.8,
+                (Math.random() - 0.5) * 1.8,
+                (Math.random() - 0.5) * 1.8
+            ),
+            seed: Math.random() * 100
+        });
+    }
+
+    let spawnAccumulator = 0;
+    let co2Accumulator = 0;
+
+    // Pre-warm vertikal agar asap sudah muncul saat pertama dibuka
+    for (let w = 0; w < 28; w++) {
+        const stepDt = 0.18;
         smokeEmitters.forEach(em => { if (Math.random() < 0.45) spawnSmokePuff(em); });
-        const stepDt = 0.14;
         for (let i = activeParticles.length - 1; i >= 0; i--) {
             const p = activeParticles[i];
             p.age += stepDt;
-            const windFactor = config.windSpeed * 0.22;
-            p.mesh.position.x += (p.velocity.x + windFactor * (p.age * 0.42)) * stepDt;
+            p.mesh.position.x += p.velocity.x * stepDt;
             p.mesh.position.y += p.velocity.y * stepDt;
-            p.mesh.position.z += (p.velocity.z - windFactor * 0.18) * stepDt;
-            const s = p.initialScale * (1 + (p.age / p.maxLife) * 2.9);
-            p.mesh.scale.set(s, s * 0.88, s);
+            p.mesh.position.z += p.velocity.z * stepDt;
+            const s = p.initialScale * (1 + (p.age / p.maxLife) * 2.1);
+            p.mesh.scale.set(s, s * 0.9, s);
         }
     }
 
-    // 7. Update
+    // 8. Loop update
     function update(dt = 0.016, elapsedTime = performance.now() * 0.001) {
         const clampedDt = Math.min(dt, 0.1);
+        const t = config.intensity;
 
         const beaconPulse = 1.5 + Math.sin(elapsedTime * 5.0) * 1.5;
         beacons.forEach(b => { b.material.emissiveIntensity = beaconPulse; });
 
-        const spawnInterval = 0.13 / Math.max(0.2, config.emissionRate);
+        // Frekuensi asap berkurang saat tipis (~0.75s) dan rapat saat tebal (~0.14s)
+        const spawnInterval = 0.82 - t * 0.68;
         spawnAccumulator += clampedDt;
         if (spawnAccumulator >= spawnInterval) {
             spawnAccumulator = 0;
-            smokeEmitters.forEach(emitter => { if (Math.random() < 0.78) spawnSmokePuff(emitter); });
+            const spawnChance = 0.45 + t * 0.52;
+            smokeEmitters.forEach(emitter => {
+                if (Math.random() < spawnChance) spawnSmokePuff(emitter);
+            });
         }
 
-        const windForce = config.windSpeed * 0.22;
+        // Molekul CO2 keluar dari cerobong (chimney)
+        co2Group.visible = config.showCO2;
+        if (config.showCO2) {
+            const co2Interval = 1.65 - t * 1.25;
+            co2Accumulator += clampedDt;
+            if (co2Accumulator >= co2Interval) {
+                co2Accumulator = 0;
+                smokeEmitters.forEach(emitter => {
+                    if (emitter.type === 'chimney' && Math.random() < 0.65 + t * 0.3) {
+                        spawnCO2Molecule(emitter);
+                    }
+                });
+            }
+        }
 
+        // Update partikel asap (naik vertikal, tanpa dorongan angin menyamping)
         for (let i = activeParticles.length - 1; i >= 0; i--) {
             const p = activeParticles[i];
             p.age += clampedDt;
@@ -447,31 +601,61 @@ function createModelPabrik(scene = null) {
             }
 
             const lifeProgress = p.age / p.maxLife;
-            const altitudeFactor = Math.pow(lifeProgress, 0.75) * 2.2;
-            const turbX = Math.sin(elapsedTime * 1.6 + p.turbulenceSeed) * 0.65;
-            const turbZ = Math.cos(elapsedTime * 1.4 + p.turbulenceSeed) * 0.65;
-            const currentVelY = p.velocity.y * (1.0 - lifeProgress * 0.45);
+            const turbX = Math.sin(elapsedTime * 1.3 + p.turbulenceSeed) * 0.25;
+            const turbZ = Math.cos(elapsedTime * 1.2 + p.turbulenceSeed) * 0.25;
+            const currentVelY = p.velocity.y * (1.0 - lifeProgress * 0.35);
 
-            p.mesh.position.x += (p.velocity.x + windForce * altitudeFactor + turbX) * clampedDt;
+            p.mesh.position.x += (p.velocity.x + turbX) * clampedDt;
             p.mesh.position.y += currentVelY * clampedDt;
-            p.mesh.position.z += (p.velocity.z - (windForce * 0.22 * altitudeFactor) + turbZ) * clampedDt;
+            p.mesh.position.z += (p.velocity.z + turbZ) * clampedDt;
 
             p.mesh.rotation.x += p.rotSpeed.x * clampedDt;
             p.mesh.rotation.y += p.rotSpeed.y * clampedDt;
             p.mesh.rotation.z += p.rotSpeed.z * clampedDt;
 
-            const currentScale = p.initialScale * (1.0 + lifeProgress * 3.1);
-            p.mesh.scale.set(currentScale, currentScale * 0.86, currentScale);
+            const growFactor = 1.6 + p.intensityAtSpawn * 1.6;
+            const currentScale = p.initialScale * (1.0 + lifeProgress * growFactor);
+            p.mesh.scale.set(currentScale, currentScale * 0.88, currentScale);
 
             let fadeFactor = 1.0;
-            if (lifeProgress < 0.12) fadeFactor = lifeProgress / 0.12;
+            if (lifeProgress < 0.14) fadeFactor = lifeProgress / 0.14;
             else if (lifeProgress > 0.55) fadeFactor = 1.0 - ((lifeProgress - 0.55) / 0.45);
 
             p.mesh.material.opacity = Math.max(0, p.baseOpacity * fadeFactor);
 
             if (p.emitterType === 'chimney') {
-                p.mesh.material.color.setHSL(0.6, 0.08, 0.30 + lifeProgress * 0.35);
+                const startL = 0.68 - p.intensityAtSpawn * 0.44;
+                p.mesh.material.color.setHSL(0.6, 0.07, Math.min(0.82, startL + lifeProgress * 0.24));
             }
+        }
+
+        // Update molekul CO2
+        for (let i = activeMolecules.length - 1; i >= 0; i--) {
+            const m = activeMolecules[i];
+            m.age += clampedDt;
+
+            if (m.age >= m.maxLife) {
+                co2Group.remove(m.mesh);
+                activeMolecules.splice(i, 1);
+                continue;
+            }
+
+            const life = m.age / m.maxLife;
+            const swayX = Math.sin(elapsedTime * 2.0 + m.seed) * 0.45;
+            const swayZ = Math.cos(elapsedTime * 1.8 + m.seed) * 0.45;
+
+            m.mesh.position.x += (m.velocity.x + swayX) * clampedDt;
+            m.mesh.position.y += m.velocity.y * (1 - life * 0.25) * clampedDt;
+            m.mesh.position.z += (m.velocity.z + swayZ) * clampedDt;
+
+            m.mesh.rotation.x += m.rotSpeed.x * clampedDt;
+            m.mesh.rotation.y += m.rotSpeed.y * clampedDt;
+            m.mesh.rotation.z += m.rotSpeed.z * clampedDt;
+
+            let s = m.baseScale;
+            if (life < 0.12) s *= life / 0.12;
+            else if (life > 0.78) s *= 1 - ((life - 0.78) / 0.22);
+            m.mesh.scale.setScalar(Math.max(0.01, s));
         }
     }
 
@@ -502,38 +686,105 @@ scene.add(sun);
 
 const pabrik = createModelPabrik(scene);
 
-document.getElementById('er').oninput = e => { pabrik.config.emissionRate = +e.target.value; document.getElementById('e').textContent = e.target.value; };
-document.getElementById('wr').oninput = e => { pabrik.config.windSpeed = +e.target.value; document.getElementById('w').textContent = e.target.value; };
+// ===== UI Controls =====
+function labelIntensitas(val) {
+    if (val <= 0.3) return 'Tipis';
+    if (val <= 0.7) return 'Sedang';
+    return 'Tebal';
+}
 
-// Tombol panah hide / show panel
+document.getElementById('er').oninput = e => {
+    const v = +e.target.value;
+    pabrik.config.intensity = v;
+    document.getElementById('e').textContent = labelIntensitas(v);
+};
+
+document.getElementById('co2Toggle').onchange = e => {
+    pabrik.config.showCO2 = e.target.checked;
+};
+
 document.getElementById('uiToggle').addEventListener('click', () => {
-  const ui = document.getElementById('ui');
-  const collapsed = ui.classList.toggle('collapsed');
-  document.getElementById('uiToggle').textContent = collapsed ? '▸' : '▾';
+    const ui = document.getElementById('ui');
+    const collapsed = ui.classList.toggle('collapsed');
+    document.getElementById('uiToggle').textContent = collapsed ? '▸' : '▾';
 });
 
-let th = 0.7, ph = 1.15, dist = 75, drag = false, px = 0, py = 0, auto = true;
+const co2Card = document.getElementById('co2Card');
+document.getElementById('infoBtn').addEventListener('click', () => co2Card.classList.toggle('open'));
+document.getElementById('co2Close').addEventListener('click', () => co2Card.classList.remove('open'));
+
+// ===== Kontrol Orbit + Pinch-to-Zoom (HP & Desktop) =====
+let th = 0.7, ph = 1.15, dist = 75, auto = true;
 const cv = ren.domElement;
-cv.addEventListener('pointerdown', e => { drag = true; auto = false; px = e.clientX; py = e.clientY; cv.setPointerCapture(e.pointerId); });
-cv.addEventListener('pointerup', () => drag = false);
-cv.addEventListener('pointermove', e => {
-  if (!drag) return;
-  th -= (e.clientX - px) * 0.006;
-  ph = Math.min(1.5, Math.max(0.3, ph - (e.clientY - py) * 0.005));
-  px = e.clientX; py = e.clientY;
+const pointers = new Map();
+let lastPinchDist = 0;
+
+cv.addEventListener('pointerdown', e => {
+    auto = false;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    cv.setPointerCapture(e.pointerId);
+    if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        lastPinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+    }
 });
-cv.addEventListener('wheel', e => { e.preventDefault(); dist = Math.min(150, Math.max(25, dist + e.deltaY * 0.06)); }, { passive: false });
-addEventListener('resize', () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); ren.setSize(innerWidth, innerHeight); });
+
+cv.addEventListener('pointerup', e => {
+    pointers.delete(e.pointerId);
+    lastPinchDist = 0;
+});
+
+cv.addEventListener('pointercancel', e => {
+    pointers.delete(e.pointerId);
+    lastPinchDist = 0;
+});
+
+cv.addEventListener('pointermove', e => {
+    if (!pointers.has(e.pointerId)) return;
+    const prev = pointers.get(e.pointerId);
+
+    if (pointers.size === 1) {
+        th -= (e.clientX - prev.x) * 0.006;
+        ph = Math.min(1.5, Math.max(0.3, ph - (e.clientY - prev.y) * 0.005));
+    }
+
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        const curDist = Math.hypot(a.x - b.x, a.y - b.y);
+        if (lastPinchDist > 0) {
+            dist = Math.min(150, Math.max(25, dist - (curDist - lastPinchDist) * 0.25));
+        }
+        lastPinchDist = curDist;
+    }
+});
+
+cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    dist = Math.min(150, Math.max(25, dist + e.deltaY * 0.06));
+}, { passive: false });
+
+addEventListener('resize', () => {
+    cam.aspect = innerWidth / innerHeight;
+    cam.updateProjectionMatrix();
+    ren.setSize(innerWidth, innerHeight);
+});
 
 let last = performance.now();
 (function loop(now) {
-  const dt = (now - last) / 1000; last = now;
-  if (auto) th += 0.0025;
-  pabrik.update(dt, now * 0.001);
-  cam.position.set(Math.sin(th) * Math.sin(ph) * dist, Math.cos(ph) * dist, Math.cos(th) * Math.sin(ph) * dist);
-  cam.lookAt(0, 10, 0);
-  ren.render(scene, cam);
-  requestAnimationFrame(loop);
+    const dt = (now - last) / 1000;
+    last = now;
+    if (auto) th += 0.0025;
+    pabrik.update(dt, now * 0.001);
+    cam.position.set(
+        Math.sin(th) * Math.sin(ph) * dist,
+        Math.cos(ph) * dist,
+        Math.cos(th) * Math.sin(ph) * dist
+    );
+    cam.lookAt(0, 12, 0);
+    ren.render(scene, cam);
+    requestAnimationFrame(loop);
 })(last);
 </script>
 </body>
